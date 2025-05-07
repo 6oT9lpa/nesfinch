@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package auth;
+
+import "user.proto";
+
+message SignUpUserInput { 
+    string username = 1;
+    string phone = 2;
+    string email = 3;
+    string pasw = 4;
+    string confirm_pasw = 5;
+}
+
+message SignUpUserResponse { User user = 1; }

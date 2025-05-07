@@ -1,0 +1,97 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self';">
+
+        <title>nesfinch</title>
+        <link rel="stylesheet" href="../styles/root.css">
+        <link rel="stylesheet" href="../styles/index.css">
+        <link rel="stylesheet" href="../styles/friends-page.css">
+        <link rel="stylesheet" href="../styles/requests-page.css">
+        <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
+    </head>
+    <body>
+        <div id="titlebar">
+            <div id="drag-region">
+                <div id="title">Nesfinch</div>
+
+                <div class="window-controls">
+                    <button id="help-button">?</button>
+                    <button id="min-button">—</button>
+                    <button id="max-button">▢</button>
+                    <button id="close-button">✕</button>
+                </div>
+            </div>
+        </div>
+
+        <aside>
+            <div class="aside-cont home-contanier">
+                <img src="../../assets/logo/logo-clean.svg">
+            </div>
+            <div class="aside-cont add-server-contanier"></div>
+        </aside>
+        <main>
+            <div class="sidebar">
+                <div class="resize-handle"></div>
+                <header>
+                    <div class="search-contanier">
+                        <div class="group-search">
+                            <i class="fa fa-compass" aria-hidden="true"></i>
+                            <a class="btn btn-search">Найти или начать беседу</a>
+                        </div>
+                    </div>
+                    <div class="hot-btns-contanier">
+                        <div class="fa-btn btn-friends">
+                            <i class="fa fa-users" aria-hidden="true"></i>
+                            <a class="btn">Друзья</a>
+                        </div>
+                        <div class="fa-btn btn-request">
+                            <i class="fa fa-envelope" aria-hidden="true"></i>
+                            <a class="btn">Запросы общения</a>
+                        </div>
+                        <div class="fa-btn btn-sub">
+                            <i class="fa fa-rocket" aria-hidden="true"></i>
+                            <a class="btn">Подписка</a>
+                        </div>
+                    </div>
+                </header>
+                <div class="active-private-messages">
+                    <div class="head-contanier">
+                        <p>Личные сообщения</p>
+                        <div class="tooltip-container">
+                            <a class="btn-plus">+</a>
+                            <span class="tooltip-text">Создать ЛС</span>
+                        </div>
+                    </div>
+                </div>
+                <a class='theme-toggle' id="theme-toggle">сменить темку</a>
+            </div>
+            <div class="load-content" id="load-content">
+            </div>
+        </main>
+
+        <div class="info-block-overlay">
+            <div class="info-block">
+                <div class="card-user">
+                    <div class="ava-user">
+                        <img src="../../assets/logo/logo.svg">
+                    </div>
+                    <div class="info-user">
+                        <p class="username">username</p>
+                        <p>в сети</p>
+                    </div>
+                </div>
+                <div class="hot-btn-info">
+                    <a data-btn-id="mic"><i class="fa fa-microphone"></i></a>
+                    <a data-btn-id="headphones"><i class="fa fa-headphones"></i></a>
+                    <a class="no-strike"><i class="fa fa-cog"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <script src="../scripts/app.js"></script>
+        <script src="../scripts/router.js"></script>
+    </body>
+</html>

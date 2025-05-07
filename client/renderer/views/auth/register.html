@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="../../styles/root.css">
+    <link rel="stylesheet" href="../../styles/auth.css">
+</head>
+<body>
+    <div id="titlebar">
+        <div id="drag-region">
+            <div id="title">Nesfinch</div>
+
+            <div class="window-controls">
+                <button id="help-button">?</button>
+                <button id="min-button">—</button>
+                <button id="max-button">▢</button>
+                <button id="close-button">✕</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-container">
+        <div class="auth-form">
+            <h2>Создать аккаунт</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <input type="text" id="username" required minlength="3" maxlength="40" placeholder=" ">
+                    <label for="username">Имя пользователя</label>
+                    <div class="underline"></div>
+                </div>
+                <div class="form-group">
+                    <input type="tel" id="phone" required placeholder=" ">
+                    <label for="phone">Телефон</label>
+                    <div class="underline"></div>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="email" required placeholder=" ">
+                    <label for="email">Email</label>
+                    <div class="underline"></div>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="password" required minlength="8" placeholder=" ">
+                    <label for="password">Пароль</label>
+                    <div class="underline"></div>
+                </div>
+                <button type="submit" class="auth-button">Зарегистрироваться</button>
+            </form>
+            <div class="auth-footer">
+                Уже есть аккаунт? <a href="#" id="loginLink">Войти</a>
+            </div>
+        </div>
+    </div>
+    <script src="../../scripts/auth.js"></script>
+</body>
+</html>

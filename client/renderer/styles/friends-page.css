@@ -1,0 +1,11 @@
+.btn-add-friend {
+    background-color: var(--link-color);
+    color: var(--secondary-color);
+    padding: 8px 14px;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+}
+
+.btn-add-friend:hover {
+    background-color: var(--link-hover);
+}
