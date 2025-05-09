@@ -227,7 +227,7 @@ function displaySearchResults(results) {
             const userElement = document.createElement('div');
             userElement.className = 'search-result-item';
             userElement.innerHTML = `
-                <span class="username">@${user.username}</span>
+                <span class="username">${user.username}</span>
                 <span class="status">${user.status}</span>
             `;
             resultsContainer.appendChild(userElement);
@@ -243,7 +243,7 @@ function displaySearchResults(results) {
             const serverElement = document.createElement('div');
             serverElement.className = 'search-result-item';
             serverElement.innerHTML = `
-                <span class="server-name">&${server.name}</span>
+                <span class="server-name">${server.name}</span>
             `;
             resultsContainer.appendChild(serverElement);
         });
