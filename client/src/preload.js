@@ -13,5 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     logout: () => ipcRenderer.send('logout'),
 
     // Универсальный метод для вызова IPC
-    invoke: (method, data) => ipcRenderer.invoke(method, data)
+    invoke: (method, data) => {
+        console.log('IPC Request:', method, data);
+        return ipcRenderer.invoke(method, data);
+    },
 });

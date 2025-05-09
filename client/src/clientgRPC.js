@@ -1,12 +1,15 @@
-// clientgRPC.js
+// client_authgRPC.js
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 const path = require('path');
 const { hashPassword, hashPhone } = require('./crypto-utils');
 
-const PROTO_PATH = path.join(__dirname, '../../proto/service.proto');
+const PROTO_PATHS = [
+    path.join(__dirname, '../../proto/service_auth.proto'),
+    path.join(__dirname, '../../proto/service_communication.proto')
+];
 
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+const packageDefinition = protoLoader.loadSync(PROTO_PATHS, {
     keepCase: true,
     longs: String,
     enums: String,
@@ -15,8 +18,13 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 });
 
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
+
 const AuthService = protoDescriptor.auth.AuthService;
-const client = new AuthService('localhost:50051', grpc.credentials.createInsecure());
+const RelationshipService = protoDescriptor.communication.RelationshipService;
+const SearchService = protoDescriptor.communication.SearchService;
+
+const client_auth = new AuthService('localhost:50051', grpc.credentials.createInsecure());
+const client_search = new SearchService('localhost:50051', grpc.credentials.createInsecure());
 
 // Клиентские методы
 const authClient = {
@@ -27,7 +35,7 @@ const authClient = {
         console.log(phone);
         
         return new Promise((resolve, reject) => {
-            client.signUpUser({ 
+            client_auth.signUpUser({ 
                 username, 
                 phone: phone_hash, 
                 email, 
@@ -43,7 +51,7 @@ const authClient = {
         const phone_hash = hashPhone(phone); 
 
         return new Promise((resolve, reject) => {
-            client.signInUser({ 
+            client_auth.signInUser({ 
                 phone: phone_hash, 
                 password 
             }, (err, response) => {
@@ -53,9 +61,9 @@ const authClient = {
         });
     },
 
-    getMe: async () => {
+    getMe: async ({ access_token }) => {
         return new Promise((resolve, reject) => {
-            client.getMe({}, (err, response) => {
+            client_auth.getMe({ access_token }, (err, response) => {
                 if (err) return reject(err);
                 resolve(response);
             });
@@ -64,18 +72,32 @@ const authClient = {
 
     refreshToken: async ({ refresh_token }) => {
         return new Promise((resolve, reject) => {
-            client.refreshToken({ refresh_token }, (err, response) => {
-                if (err) {
-                    let message = 'Ошибка обновления токена';
-                    if (err.code === grpc.status.UNAUTHENTICATED) {
-                        message = 'Сессия истекла. Требуется повторный вход.';
-                    }
-                    return reject(new Error(message));
-                }
+            client_auth.refreshToken({ refresh_token }, (err, response) => {
+                if (err) return reject(err);
                 resolve(response);
             });
         });
     }
 };
 
-module.exports = { authClient };
+const relationsipClient = {
+
+};
+
+const searchClient = {
+    getSearch: async ({ name, type }) => {
+        const request = {
+            name,  
+            type   
+        };
+
+        return new Promise((resolve, reject) => {
+            client_search .getSearch(request, (err, response) => {
+                if (err) return reject(err); 
+                resolve(response); 
+            });
+        });
+    }
+};
+
+module.exports = { authClient, relationsipClient, searchClient };

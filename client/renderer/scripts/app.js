@@ -133,3 +133,119 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('help-button').addEventListener('click', () => {
     alert('Это справка по приложению. Здесь можно вывести документацию или ссылку на сайт.');
 });
+
+
+document.getElementById('open-btn-search').addEventListener('click', (e) => {
+    e.preventDefault();
+    showModal('search-contanier');
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') { 
+        hideModal('search-contanier');
+    }
+});
+
+document.getElementById('search-contanier').addEventListener('click', function(event) {
+    if (event.target === this) { 
+        hideModal('search-contanier');
+    }
+});
+
+function showModal(modalID) {
+    let modal = document.getElementById(modalID);
+    modal.style.display = 'block';
+}
+
+function hideModal(modalID) {
+    let modal = document.getElementById(modalID);
+    modal.style.display = 'none';
+}
+
+let searchTimeout = null;
+document.getElementById('search-input').addEventListener('input', (e) => {
+    const searchTerm = e.target.value.trim();
+
+    clearTimeout(searchTimeout);
+
+    if (searchTerm === '') {
+        const searchBox = document.getElementById('search-box');
+        if (searchBox) {
+            searchBox.innerHTML = '<p>НЕДАВНИЕ ОБЩЕНИЯ</p>';
+        }
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        try {
+            let searchType = 'SearchUnspecified';
+            if (searchTerm.startsWith('@')) {
+                searchType = 'SearchUser';
+            } else if (searchTerm.startsWith('&')) {
+                searchType = 'SearchServer';
+            }
+
+            const searchTermForApi = searchTerm.startsWith('@') || searchTerm.startsWith('&') 
+                ? searchTerm.substring(1) 
+                : searchTerm;
+
+            const response = await window.electronAPI.invoke('getSearch', {
+                name: searchTermForApi,
+                type: searchType
+            });
+
+            displaySearchResults(response);
+        } catch (error) {
+            console.error('Search error:', error);
+            const searchBox = document.getElementById('search-box');
+            if (searchBox) {
+                searchBox.innerHTML = '<p>Ошибка при выполнении поиска</p>';
+            }
+        }
+    }, 500); 
+});
+
+function displaySearchResults(results) {
+    const resultsContainer = document.getElementById('search-box');
+    if (!resultsContainer) return;
+    
+    resultsContainer.innerHTML = '';
+    
+    if ((!results.users || results.users.length === 0) && 
+        (!results.servers || results.servers.length === 0)) {
+        resultsContainer.innerHTML = '<p>Ничего не найдено</p>';
+        return;
+    }
+    
+    // Показываем пользователей
+    if (results.users && results.users.length > 0) {
+        const usersHeader = document.createElement('p');
+        usersHeader.textContent = 'ПОИСК ПО ПОЛЬЗОВАТЕЛЯМ';
+        resultsContainer.appendChild(usersHeader);
+        
+        results.users.forEach(user => {
+            const userElement = document.createElement('div');
+            userElement.className = 'search-result-item';
+            userElement.innerHTML = `
+                <span class="username">@${user.username}</span>
+                <span class="status">${user.status}</span>
+            `;
+            resultsContainer.appendChild(userElement);
+        });
+    }
+    
+    if (results.servers && results.servers.length > 0) {
+        const serversHeader = document.createElement('p');
+        serversHeader.textContent = 'ПОИСК ПО СЕРВЕРАМ';
+        resultsContainer.appendChild(serversHeader);
+        
+        results.servers.forEach(server => {
+            const serverElement = document.createElement('div');
+            serverElement.className = 'search-result-item';
+            serverElement.innerHTML = `
+                <span class="server-name">&${server.name}</span>
+            `;
+            resultsContainer.appendChild(serverElement);
+        });
+    }
+}

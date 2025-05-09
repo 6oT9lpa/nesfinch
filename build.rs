@@ -18,7 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "proto/user.proto",
                 "proto/rpc_signup_user.proto",
                 "proto/rpc_signin_user.proto",
-                "proto/service.proto"
+                "proto/service_auth.proto",
+                "proto/rpc_relationships.proto",
+                "proto/service_communication.proto",
+                "proto/rpc_search.proto"
             ],
             &["proto/"],
         )?;

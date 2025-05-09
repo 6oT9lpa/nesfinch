@@ -1,0 +1,20 @@
+syntax = "proto3";
+package communication;
+
+import "rpc_relationships.proto";
+import "rpc_search.proto";
+
+service RelationshipService {
+    // Изменение статуса отношений между пользователями
+    rpc UpdateRelationship(UpdateRelationshipRequest) returns (UpdateRelationshipResponse) {};
+
+    // Получение списка отношений пользователей к определенному пользователю
+    rpc GetRelationships(GetRelationshipsRequest) returns (GetRelationshipsResponse) {};
+
+    // Получение статуса отношений к определенному пользователю
+    rpc GetRelationshipStatus(GetRelationshipStatusRequest) returns (GetRelationshipStatusResponse) {};
+}
+
+service SearchService {
+    rpc GetSearch(SearchRequest) returns (SearchResponse) {};
+}

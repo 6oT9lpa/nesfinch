@@ -12,7 +12,7 @@ tokio = { version = "1", features = ["full"] }
 tonic = { version = "0.10", features = ["transport"] }
 prost = "0.12"
 prost-types = "0.12"
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono"] }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "migrate", "uuid"] }
 bcrypt = "0.14"
 sha2 = "0.10"
 jsonwebtoken = "9"
@@ -28,8 +28,11 @@ constant_time_eq = "0.3"
 ring = "0.17"
 hex = "0.4.3"
 aes-gcm = "0.10.3"
+uuid = "1.16.0"
 
 [build-dependencies]
 tonic-build = "0.10"
 dotenv = "0.15"
+
+
 

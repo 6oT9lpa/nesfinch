@@ -52,7 +52,7 @@ impl KeyManager {
     // Генерация пары ключей для нового юзера
     pub async fn generate_user_keys (
         &self,
-        user_id: i64,
+        user_id: uuid::Uuid,
     ) -> Result<KeyPair, Status> {
         let keypair = generate_keypair(2048)
         .map_err(|e| {
@@ -60,16 +60,11 @@ impl KeyManager {
             Status::internal("Hash error")
         })?;
 
-        let exists: Option<i64> = sqlx::query_scalar!(
+        let exists: Option<uuid::Uuid> = sqlx::query_scalar!(
             "SELECT id FROM user_keys WHERE fingerprint = $1 AND is_revoked = false",
             keypair.fingerprint
-        )
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| {
-            println!("Database error: {:?}", e);
-            Status::internal("Database error")
-        })?;
+        ).fetch_optional(&self.db).await.map_err(|_| Status::internal("Database error"))?;
+
 
         if exists.is_some() {
             return Err(Status::already_exists("Key already exists and is not revoked"));
@@ -95,5 +90,5 @@ impl KeyManager {
         })?;
 
         Ok(keypair)
-    }
-}
+
+    }}

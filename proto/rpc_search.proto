@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package communication;
+import "rpc_relationships.proto";
+
+enum SearchType {
+    SEARCH_UNSPECIFIED = 0;
+    SEARCH_USER = 1;
+    SEARCH_SERVER = 2;
+    SEARCH_CHANNEL = 3;
+}
+
+message SearchRequest {
+    SearchType type = 1;  
+    string name = 2;     
+}
+
+message Server {
+    string id = 1;
+    string name = 2;
+}
+
+message Channel {
+    string id = 1;
+    string server_id = 2;
+    string name = 3;
+}
+
+message SearchResponse {
+    repeated User users = 1;
+    repeated Server servers = 2;
+}

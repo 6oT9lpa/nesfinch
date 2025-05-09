@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package communication;
+
+import "google/protobuf/timestamp.proto";
+
+message User {
+    string id = 1;
+    string username = 2;
+    string status = 3;
+}
+
+// Типы отношений между пользователями
+enum RelationshipType {
+    RELATIONSHIP_UNSPECIFIED = 0; 
+    RELATIONSHIP_FRIEND = 1;  
+    RELATIONSHIP_BLOCKED = 2; 
+    RELATIONSHIP_PENDING = 3; 
+}
+
+// Статус запроса на установление отношения
+enum RelationshipStatus {
+    STATUS_UNSPECIFIED = 0; 
+    STATUS_ACCEPTED = 1; 
+    STATUS_REJECTED = 2;
+    STATUS_PENDING = 3;
+    STATUS_CANCELLED = 4;
+}
+
+message UpdateRelationshipRequest {
+    string target_user_id = 1;
+    RelationshipType type = 2;
+    string note = 3;
+}
+
+message UpdateRelationshipResponse {
+    RelationshipStatus status = 1;
+    google.protobuf.Timestamp updated_at = 2;
+}
+
+message GetRelationshipsRequest {
+    RelationshipType type = 1;
+    int32 limit = 2;
+    int32 offset = 3;
+}
+
+message GetRelationshipsResponse {
+    repeated User users = 1;
+    repeated RelationshipType types = 2;
+    repeated RelationshipStatus statuses = 3;
+    int32 total_count = 4;
+}
+
+message GetRelationshipStatusRequest {
+    string target_user_id = 1;
+}
+
+message GetRelationshipStatusResponse {
+    RelationshipType relationship_type = 1;
+    RelationshipStatus status = 2;
+    google.protobuf.Timestamp updated_at = 3;
+}
+

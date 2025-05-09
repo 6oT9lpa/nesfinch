@@ -37,7 +37,7 @@
                 <div class="resize-handle"></div>
                 <header>
                     <div class="search-contanier">
-                        <div class="group-search">
+                        <div class="group-search" id="open-btn-search">
                             <i class="fa fa-compass" aria-hidden="true"></i>
                             <a class="btn btn-search">Найти или начать беседу</a>
                         </div>
@@ -90,6 +90,16 @@
                 </div>
             </div>
         </div>
+
+        <div class="modal search-content" id="search-contanier">
+            <div class="modal-content">
+                <input type="text" placeholder="Куда отправимся?" id="search-input">
+                <div class="search-footer" id="search-box">
+                    <p>НЕДАВНИЕ ОБЩЕНИЯ</p>
+                </div>
+                <span>Подсказка: ищите с помощью знаков @ и &</span>
+            </div>
+        </div> 
 
         <script src="../scripts/app.js"></script>
         <script src="../scripts/router.js"></script>
