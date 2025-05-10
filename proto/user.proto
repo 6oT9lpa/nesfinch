@@ -9,6 +9,7 @@ message User {
     string username = 2;
     string status = 3;
     string activity_user = 4;
+    google.protobuf.Timestamp created_at = 5;
 }
 
 message GenericResponse {

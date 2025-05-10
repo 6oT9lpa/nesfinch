@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package status;
+
+service StatusService {
+    rpc UpdateStatus (StatusUpdate) returns (StatusResponse);
+    rpc SubscribeToStatusUpdates (StatusSubscription) returns (stream StatusUpdate);
+    rpc GetUserStatus (StatusRequest) returns (UserStatus);
+}
+
+message StatusUpdate {
+    string user_id = 1;
+    Status status = 2;
+}
+
+message StatusResponse {
+    bool success = 1;
+}
+
+message StatusSubscription {
+    string user_id = 1;
+}
+
+message StatusRequest {
+    string user_id = 1;
+}
+
+message UserStatus {
+    string user_id = 1;
+    Status status = 2;
+    int64 last_seen = 3;
+}
+
+enum Status {
+    ONLINE = 0;
+    OFFLINE = 1;
+    IDLE = 2;
+    DO_NOT_DISTURB = 3;
+}

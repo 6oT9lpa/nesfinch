@@ -1,20 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    // Управление окном
     windowClose: () => ipcRenderer.send('window-close'),
     windowMinimize: () => ipcRenderer.send('window-minimize'),
     windowMaximize: () => ipcRenderer.send('window-maximize'),
 
-    // Работа с токенами
     setAuthTokens: (tokens) => ipcRenderer.send('set-auth-tokens', tokens),
     getAuthTokens: () => ipcRenderer.invoke('get-auth-tokens'),
     clearAuthTokens: () => ipcRenderer.send('clear-auth-tokens'),
-    logout: () => ipcRenderer.send('logout'),
 
-    // Универсальный метод для вызова IPC
-    invoke: (method, data) => {
-        console.log('IPC Request:', method, data);
-        return ipcRenderer.invoke(method, data);
-    },
+    logout: () => ipcRenderer.send('logout'),
+    invoke: (method, data) => ipcRenderer.invoke(method, data),
+    
+    onStatusUpdate: (callback) => ipcRenderer.on('status-update', (event, update) => callback(update)),
+    removeStatusUpdateListener: () => ipcRenderer.removeAllListeners('status-update'),
+    setUserStatus: async (status) => ipcRenderer.invoke('set-user-status', status)
 });

@@ -21,7 +21,7 @@ impl MySearchService {
 
     async fn search_users(&self, name: &str) -> Result<Vec<User>, sqlx::Error> {
         let rows = sqlx::query!(
-            "SELECT id::uuid as id, username, ''::text as status FROM users WHERE username ILIKE $1",
+            "SELECT id::uuid as id, username, status, created_at FROM users WHERE username ILIKE $1",
             name
         )
         .fetch_all(&self.db)
@@ -33,6 +33,10 @@ impl MySearchService {
                 id: row.id.to_string(),
                 username: row.username,
                 status: row.status.unwrap_or("offline".to_string()),
+                created_at: Some(prost_types::Timestamp {
+                    seconds: row.created_at.and_utc().timestamp(),
+                    nanos: row.created_at.and_utc().timestamp_subsec_nanos() as i32,
+                }), 
             })
             .collect())
     }
