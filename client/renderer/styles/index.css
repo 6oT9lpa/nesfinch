@@ -303,6 +303,51 @@ header::after {
     font-size: 14px;
     font-weight: 500;
     color: var(--secondary-color);
+    position: absolute;
+    top: 20px;
+}
+
+div#user-status-container {
+    position: absolute;
+    left: 45px;
+    bottom: 15px;
+}
+
+@keyframes glow-pulse {
+    0% {
+    box-shadow: 0 0 2px 0 rgba(59, 165, 92, 0.8);
+    opacity: 1;
+    }
+    50% {
+    box-shadow: 0 0 5px 2px rgba(59, 165, 92, 0.4);
+    opacity: 0.8;
+    }
+    100% {
+    box-shadow: 0 0 2px 0 rgba(59, 165, 92, 0.8);
+    opacity: 1;
+    }
+}
+
+span.status-text {
+    position: absolute;
+    bottom: 5px;
+    left: 20px;
+}
+
+.status-icon-online { border-radius: 50%; color: #00aa00; animation: glow-pulse 2s ease-in-out infinite; }
+.status-icon-idle { border-radius: 50%; color: #e6b800; }
+.status-icon-offline { border-radius: 50%; color: #888; }
+.status-icon-dnd { border-radius: 50%; color: #cc0000; }
+
+.status-icon {
+    margin-right: 6px;
+    font-size: 0.9em;
+    width: 1em;
+    display: inline-block;
+    text-align: center;
+    background: var(--bg-primary);
+    padding: 5px;
+    border-radius: 50%;
 }
 
 .hot-btn-info {
@@ -470,16 +515,20 @@ header::after {
     height: 270px;
 }
 
-.modal.search-content {
-    display: none;
+.modal {
+    display: block;
     position: absolute;
     top: 40px;
     left: 0;
     z-index: 9999;
     width: 100%;
     height: 100%;
-    background: #0a0a0ab0;
+    background: #171717b0;
     backdrop-filter: blur(5px);
+}
+
+.search-content {
+    display: none;
 }
 
 .modal-content {
@@ -547,4 +596,141 @@ div#search-box p {
     float: right;
     color: #666;
     font-size: 0.9em;
+}
+
+.modal.profile-users {
+    display: none;
+}
+
+.modal-content.profile-users {
+    background: var(--bg-secondary);
+    height: 720px;
+    width: 600px;
+    top: calc(100vh - 45vh);
+    left: 50%;
+    padding: 0;
+    border: none;
+    max-height: calc(100vh - 100px);
+    min-height: 300px; 
+    overflow-y: auto;
+}
+
+.banner-users {
+    height: 200px;
+    background: #000000;
+    border: var(--border-color);
+    border-radius: var(--border-radius);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: 35px;
+}
+
+.header-content {
+    padding: 15px;
+    position: relative;
+}
+
+.avatar-users {
+    position: absolute;
+    background: var(--bg-secondary);
+    border-radius: 50%;
+    padding: 10px;
+    top: 120px;
+    left: 30px;
+}
+
+.avatar-users img {
+    width: 120px;
+}
+
+.interaction-users {
+    position: absolute;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+
+}
+
+a.messager {
+    background: var(--bg-active);
+    padding: 10px;
+    border-radius: var(--border-radius);
+    border: var(--border-color);
+    transition: var(--transition);
+}
+
+a.messager:hover {
+    background-color: var(--bg-hover);
+}
+
+a.add-friend {
+    background: var(--link-color);
+    padding: 10px 15px;
+    border-radius: var(--border-radius);
+    color: var(--secondary-color);
+    transition: var(--transition);
+}
+
+a.add-friend:hover {
+    background-color: var(--link-hover);
+}
+
+.nickname-users {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nickname-users h4 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.nickname-users p {
+    font-size: 14px;
+}
+
+.navbar-users {
+    position: relative;
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-around;
+    padding-bottom: 10px;
+}
+
+.navbar-users::after {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    height: .5px;
+    background-color: var(--bg-hover);
+}
+
+.nav-item {
+    position: relative;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.nav-item::after {
+    content: '';
+    position: absolute;
+    bottom: -8px; 
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    border-radius: 5px;
+    background-color: var(--secondary-color);
+    transition: var(--transition);
+}
+
+.nav-item:hover {
+    color: var(--hover-color);
+}
+
+.nav-item:hover::after {
+    width: 100%; 
 }

@@ -52,17 +52,26 @@ async function setupUserStatusHandling() {
         };
         
         console.log("access token: ", tokens.accessToken)
-        const user = await authClient.getMe({ access_token: tokens.accessToken });
+        const { user } = await authClient.getMe({ access_token: tokens.accessToken });
 
         console.log("user: ", user)
 
         await statusClient.updateStatus({
-            userId: user.user.id,
+            userId: user.id,
             status: 'ONLINE'
         });
 
-        const subscription = await statusClient.subscribeToStatusUpdates(user.user.id);
+        const subscription = await statusClient.subscribeToStatusUpdates(user.id);
         
+        subscription.on('data', (update) => {
+            if (mainWindow) {
+                mainWindow.webContents.send('status-update', {
+                    userId: update.userId,
+                    status: update.status
+                });
+            }
+        });
+
         subscription.on('data', (update) => {
             if (mainWindow) {
                 mainWindow.webContents.send('status-update', update);
@@ -76,7 +85,7 @@ async function setupUserStatusHandling() {
         mainWindow.on('show', async () => {
             try {
                 await statusClient.updateStatus({
-                    userId: user.user.id,
+                    userId: user.id,
                     status: 'ONLINE'
                 });
             } catch (err) {
@@ -87,7 +96,7 @@ async function setupUserStatusHandling() {
         mainWindow.on('hide', async () => {
             try {
                 await statusClient.updateStatus({
-                    userId: user.user.id,
+                    userId: user.id,
                     status: 'IDLE'
                 });
             } catch (err) {
@@ -98,7 +107,7 @@ async function setupUserStatusHandling() {
         app.on('before-quit', async () => {
             try {
                 await statusClient.updateStatus({
-                    userId: user.user.id,
+                    userId: user.id,
                     status: 'OFFLINE'
                 });
             } catch (err) {
@@ -138,7 +147,11 @@ async function createWindow() {
     
     if (tokens.accessToken) {
         try {
-            const user = await authClient.getMe({ access_token: tokens.accessToken });
+            const { user } = await authClient.getMe({ access_token: tokens.accessToken });
+            mainWindow.webContents.on('did-finish-load', () => {
+                mainWindow.webContents.send('user-data', user);
+            });
+
             await mainWindow.loadFile(path.join(__dirname, '../renderer/views/index.html'));
         } catch (error) {
             if (tokens.refreshToken) {

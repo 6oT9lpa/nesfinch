@@ -79,8 +79,9 @@
                         <img src="../../assets/logo/logo.svg">
                     </div>
                     <div class="info-user">
-                        <p class="username">username</p>
-                        <p>в сети</p>
+                        <p class="username" id="current-username">username</p>
+                        <div id="user-status-container"></div>
+
                     </div>
                 </div>
                 <div class="hot-btn-info">
@@ -100,6 +101,34 @@
                 <span>Подсказка: ищите с помощью знаков @ и &</span>
             </div>
         </div> 
+
+        <div class="modal profile-users" id="profile-users">
+            <div class="modal-content profile-users">
+                <div class="banner-users"></div>
+                <div class="avatar-users">
+                    <img src="../../assets/logo/logo.svg">
+                </div>
+                <div class="info-content-users">
+                    <div class="header-content">
+                        <div class="interaction-users">
+                            <a class="messager"><i class="fa fa-comment" aria-hidden="true"></i></a>
+                            <a class="add-friend"><i class="fa fa-user-plus" aria-hidden="true"></i> Добавить в друзья</a>
+                        </div>
+                        <div class="nickname-users">
+                            <h4>Display Name</h4>
+                            <p>usrname</p>
+                        </div>
+                    </div>
+                    <div class="navbar-users">
+                        <a class="nav-item">Обо мне</a>
+                        <a class="nav-item">Общие друзья</a>
+                        <a class="nav-item">Общие сервера</a>
+                    </div>
+                    <div class="load-content-users">
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <script src="../scripts/app.js"></script>
         <script src="../scripts/router.js"></script>

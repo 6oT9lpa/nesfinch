@@ -152,6 +152,18 @@ document.getElementById('search-contanier').addEventListener('click', function(e
     }
 });
 
+document.getElementById('profile-users').addEventListener('click', function(event) {
+    if (event.target === this) { 
+        hideModal('profile-users');
+    }
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') { 
+        hideModal('profile-users');
+    }
+});
+
 function showModal(modalID) {
     let modal = document.getElementById(modalID);
     modal.style.display = 'block';
@@ -160,6 +172,24 @@ function showModal(modalID) {
 function hideModal(modalID) {
     let modal = document.getElementById(modalID);
     modal.style.display = 'none';
+}
+
+function openUserProfile(userId) {
+    showModal('profile-users');
+    
+    window.electronAPI.invoke('getUserProfile', { userId })
+    .then(user => {
+        document.getElementById('profile-username').textContent = user.username;
+        document.getElementById('profile-displayname').textContent = user.displayName || user.username;
+        document.getElementById('profile-status').textContent = user.status;
+        
+        if (user.avatarUrl) {
+            document.querySelector('.profile-users .avatar-users img').src = user.avatarUrl;
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка загрузки профиля:', error);
+    });
 }
 
 let searchTimeout = null;
@@ -217,7 +247,6 @@ function displaySearchResults(results) {
         return;
     }
     
-    // Показываем пользователей
     if (results.users && results.users.length > 0) {
         const usersHeader = document.createElement('p');
         usersHeader.textContent = 'ПОИСК ПО ПОЛЬЗОВАТЕЛЯМ';
@@ -225,12 +254,18 @@ function displaySearchResults(results) {
         
         results.users.forEach(user => {
             const userElement = document.createElement('div');
-            userElement.className = 'search-result-item';
+            userElement.className = 'search-result-item open-profile-users';
+            userElement.dataset.userId = user.id; 
             userElement.innerHTML = `
                 <span class="username">${user.username}</span>
                 <span class="status">${user.status}</span>
             `;
             resultsContainer.appendChild(userElement);
+            
+            userElement.addEventListener('click', (e) => {
+                e.preventDefault();
+                openUserProfile(user.id);
+            });
         });
     }
     
@@ -248,4 +283,57 @@ function displaySearchResults(results) {
             resultsContainer.appendChild(serverElement);
         });
     }
+}
+
+window.electronAPI.onUserData((user) => {
+    updateUserUI(user);
+});
+
+window.electronAPI.onStatusUpdate((update) => {
+    const currentUser = window.currentUser; 
+    if (currentUser && currentUser.id === update.userId) {
+        updateUserStatus(update.status); 
+    }
+});
+
+function updateUserUI(user) {
+    window.currentUser = user;
+    
+    document.getElementById('current-username').textContent = user.username;
+    updateUserStatus(user.status); 
+}
+
+function updateUserStatus(status) {
+    const statusIcon = getStatusIcon(status);
+    const statusText = formatStatusText(status);
+    
+    const statusContainer = document.getElementById('user-status-container');
+    statusContainer.innerHTML = `
+        <p>
+            <i class="status-icon">${statusIcon}</i>
+            <span class="status-text">${statusText}</span>
+        </p>
+    `;
+    statusContainer.className = `user-status status-${status.toLowerCase()}`;
+    
+}
+
+function getStatusIcon(status) {
+    const icons = {
+        online: '<i class="fas fa-circle status-icon-online"></i>',
+        idle: '<i class="fas fa-moon status-icon-idle"></i>',
+        offline: '<i class="far fa-circle status-icon-offline"></i>',
+        do_not_disturb: '<i class="fas fa-times-circle status-icon-dnd"></i>'
+    };
+    return icons[status.toLowerCase()] || '<i class="far fa-circle"></i>';
+}
+
+function formatStatusText(status) {
+    const statusMap = {
+        online: 'Online',
+        idle: 'Idle',
+        offline: 'Offline',
+        do_not_disturb: 'Do Not Disturb'
+    };
+    return statusMap[status.toLowerCase()] || status;
 }

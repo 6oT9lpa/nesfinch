@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     onStatusUpdate: (callback) => ipcRenderer.on('status-update', (event, update) => callback(update)),
     removeStatusUpdateListener: () => ipcRenderer.removeAllListeners('status-update'),
-    setUserStatus: async (status) => ipcRenderer.invoke('set-user-status', status)
+    setUserStatus: async (status) => ipcRenderer.invoke('set-user-status', status),
+
+    onUserData: (callback) => ipcRenderer.on('user-data', (event, user) => callback(user)),
+    onStatusUpdate: (callback) => ipcRenderer.on('status-update', (event, update) => callback(update)),
 });
