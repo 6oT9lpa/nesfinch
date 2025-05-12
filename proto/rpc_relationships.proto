@@ -25,22 +25,34 @@ enum RelationshipStatus {
     STATUS_ACCEPTED = 1; 
     STATUS_REJECTED = 2;
     STATUS_PENDING = 3;
-    STATUS_CANCELLED = 4;
+}
+
+message CreateRelationshipRequest {
+    string current_user = 1;
+    string target_user = 2;
+    RelationshipType type = 3;
+}
+
+message CreateRelationshipResponse {
+    RelationshipStatus status = 1;
+    google.protobuf.Timestamp created_at = 2;
 }
 
 message UpdateRelationshipRequest {
-    string target_user_id = 1;
-    RelationshipType type = 2;
-    string note = 3;
+    string current_user = 1;
+    string target_user = 2;
+    RelationshipType new_type = 3;  
+    RelationshipStatus new_status = 4;  
 }
 
 message UpdateRelationshipResponse {
-    RelationshipStatus status = 1;
-    google.protobuf.Timestamp updated_at = 2;
+    RelationshipType current_type = 1;
+    RelationshipStatus current_status = 2;
+    google.protobuf.Timestamp updated_at = 3;
 }
 
 message GetRelationshipsRequest {
-    RelationshipType type = 1;
+    RelationshipType new_type = 1;
     int32 limit = 2;
     int32 offset = 3;
 }
@@ -61,4 +73,3 @@ message GetRelationshipStatusResponse {
     RelationshipStatus status = 2;
     google.protobuf.Timestamp updated_at = 3;
 }
-

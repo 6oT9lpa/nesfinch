@@ -285,15 +285,10 @@ function displaySearchResults(results) {
     }
 }
 
+ // Обработка данных пользователя
 window.electronAPI.onUserData((user) => {
+    console.log('User data received:', user);
     updateUserUI(user);
-});
-
-window.electronAPI.onStatusUpdate((update) => {
-    const currentUser = window.currentUser; 
-    if (currentUser && currentUser.id === update.userId) {
-        updateUserStatus(update.status); 
-    }
 });
 
 function updateUserUI(user) {
@@ -303,19 +298,45 @@ function updateUserUI(user) {
     updateUserStatus(user.status); 
 }
 
+window.electronAPI.onStatusUpdate((update) => {
+    console.log('Status update received:', update);
+    handleStatusUpdate(update);
+});
+
+function handleStatusUpdate(update) {
+    if (window.currentUser && update.userId === window.currentUser.id) {
+        updateUserStatus(update.status);
+    }
+    
+    updateStatusInUI(update.userId, update.status);
+}
+
 function updateUserStatus(status) {
     const statusIcon = getStatusIcon(status);
     const statusText = formatStatusText(status);
     
     const statusContainer = document.getElementById('user-status-container');
-    statusContainer.innerHTML = `
-        <p>
-            <i class="status-icon">${statusIcon}</i>
-            <span class="status-text">${statusText}</span>
-        </p>
-    `;
-    statusContainer.className = `user-status status-${status.toLowerCase()}`;
+    if (statusContainer) {
+        statusContainer.innerHTML = `
+            <p>
+                <i class="status-icon">${statusIcon}</i>
+                <span class="status-text">${statusText}</span>
+            </p>
+        `;
+        statusContainer.className = `user-status status-${status.toLowerCase()}`;
+    }
+}
+
+function updateStatusInUI(userId, status) {
+    document.querySelectorAll(`[data-user-id="${userId}"] .status`).forEach(el => {
+        el.textContent = formatStatusText(status);
+        el.className = `status status-${status.toLowerCase()}`;
+    });
     
+    if (document.getElementById('profile-users')?.style.display === 'block' && 
+        document.getElementById('profile-users')?.dataset.userId === userId) {
+        document.getElementById('profile-status').textContent = formatStatusText(status);
+    }
 }
 
 function getStatusIcon(status) {

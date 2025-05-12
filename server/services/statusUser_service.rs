@@ -120,16 +120,61 @@ impl StatusService for MyStatusService {
 
     async fn subscribe_to_status_updates(
         &self,
-        _request: Request<StatusSubscription>,
+        request: Request<StatusSubscription>,
     ) -> Result<Response<Self::SubscribeToStatusUpdatesStream>, GrpcStatus> {
         let mut rx = self.tx.subscribe();
+        println!("New status subscription established");
+
+        let user_id = request.into_inner().user_id;
+
+        let user_uuid = uuid::Uuid::parse_str(&user_id)
+            .map_err(|_| GrpcStatus::invalid_argument("Invalid UUID"))?;
+
+        
+        let current_status = sqlx::query!(
+            r#"
+            SELECT status
+            FROM users
+            WHERE id = $1::uuid
+            "#,
+            user_uuid 
+        )
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|_| GrpcStatus::internal("Failed to fetch user status"))?;
+
+        let current_status_str = current_status
+            .map(|record| record.status) 
+            .unwrap_or_else(|| Some("offline".to_string()));
+
+        let status_str = current_status_str.as_ref().expect("REASON");
+        let current_status_enum = match status_str.as_str() {
+            "online" => Status::Online as i32,
+            "offline" => Status::Offline as i32,
+            "idle" => Status::Idle as i32,
+            "do_not_disturb" => Status::DoNotDisturb as i32,
+            _ => Status::Offline as i32,
+        };
+
+        println!("Статус пользователя {} обновлён на {}", user_uuid, status_str);
+        let current_status_update = StatusUpdate {
+            user_id: user_uuid.to_string(), 
+            status: current_status_enum,
+        };
+        println!("Отправка обновления статуса: {:?}", current_status_update);
+
+        print!("{}", current_status_enum);
+
+        let _ = self.tx.send(current_status_update);
 
         let output_stream = async_stream::try_stream! {
             while let Ok(update) = rx.recv().await {
+                println!("Sending status update: {:?}", update);
                 yield update;
             }
         };
 
         Ok(Response::new(Box::pin(output_stream)))
+
     }
 }

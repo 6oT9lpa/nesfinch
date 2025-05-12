@@ -5,13 +5,16 @@ import "rpc_relationships.proto";
 import "rpc_search.proto";
 
 service RelationshipService {
-    // Изменение статуса отношений между пользователями
+    // Создание нового запроса на установление отношений (заявка в друзья)
+    rpc CreateRelationship(CreateRelationshipRequest) returns (CreateRelationshipResponse) {};
+    
+    // Обновление существующих отношений (принятие/отклонение заявки, блокировка)
     rpc UpdateRelationship(UpdateRelationshipRequest) returns (UpdateRelationshipResponse) {};
 
-    // Получение списка отношений пользователей к определенному пользователю
+    // Получение списка отношений пользователей
     rpc GetRelationships(GetRelationshipsRequest) returns (GetRelationshipsResponse) {};
 
-    // Получение статуса отношений к определенному пользователю
+    // Получение статуса отношений с конкретным пользователем
     rpc GetRelationshipStatus(GetRelationshipStatusRequest) returns (GetRelationshipStatusResponse) {};
 }
 

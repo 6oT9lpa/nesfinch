@@ -12,10 +12,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     logout: () => ipcRenderer.send('logout'),
     invoke: (method, data) => ipcRenderer.invoke(method, data),
     
-    onStatusUpdate: (callback) => ipcRenderer.on('status-update', (event, update) => callback(update)),
     removeStatusUpdateListener: () => ipcRenderer.removeAllListeners('status-update'),
     setUserStatus: async (status) => ipcRenderer.invoke('set-user-status', status),
 
     onUserData: (callback) => ipcRenderer.on('user-data', (event, user) => callback(user)),
-    onStatusUpdate: (callback) => ipcRenderer.on('status-update', (event, update) => callback(update)),
+    onStatusUpdate: (callback) => {
+        ipcRenderer.removeAllListeners('status-update');
+        ipcRenderer.on('status-update', (event, update) => callback(update));
+    },
+
+    createRelationship: (data) => ipcRenderer.invoke('relationship-create', data),
+    updateRelationship: (data) => ipcRenderer.invoke('relationship-update', data),
+    getRelationships: (data) => ipcRenderer.invoke('relationship-get-all', data),
+    getRelationshipStatus: (data) => ipcRenderer.invoke('relationship-get-status', data),
 });

@@ -7,7 +7,7 @@ mod communication {
 }
 
 pub use communication::search_service_server::{SearchService, SearchServiceServer};
-use communication::{SearchRequest, SearchResponse, SearchType, User, Server};  // Убираем Channel
+use communication::{SearchRequest, SearchResponse, SearchType, User, Server}; 
 
 #[derive(Debug)]
 pub struct MySearchService {

@@ -1,12 +1,7 @@
 const { app, BrowserWindow, Menu, ipcMain, session } = require('electron');
-const { authClient, searchClient, statusClient } = require('./clientgRPC');
+const { authClient, searchClient, statusClient, relationshipClient } = require('./clientgRPC');
 const path = require('path');
-const Store = require('electron-store').default;
-
-const store = new Store({
-    name: 'auth-tokens',
-    encryptionKey: 'acff9326d873e7a27579295287dbf0581b73fc3c03c5ae77dbaac1f01806572c7fa9dc727b5e735825553cb158d6586b30b4ae486e372bcb23ad350377f86eb6ab4b761f2d72bdf96cfacae35249de4ff8869a230ebae853b195f1e1df1cd963d4582f80f0b8e825067b6836236905519b35a9b644b5e12df4aabc127b761d07'
-});
+const store  = require('./store');
 
 Menu.setApplicationMenu(null);
 
@@ -19,14 +14,16 @@ async function verifyUserSession() {
         refreshToken: store.get('refreshToken'),
     };
 
+    console.log("accessToken: ", tokens.accessToken);
+    console.log("refreshToken", tokens.refreshToken);
+
     if (!tokens.accessToken) {
-        return false;
+        return { isValid: false, user: null };
     }
 
     try {
         const user = await authClient.getMe({ access_token: tokens.accessToken });
-        return true;
-    } catch (error) {
+
         if (tokens.refreshToken) {
             try {
                 const newTokens = await authClient.refreshToken({
@@ -34,74 +31,40 @@ async function verifyUserSession() {
                 });
                 store.set('accessToken', newTokens.access_token);
                 store.set('refreshToken', newTokens.refresh_token);
-                return true;
             } catch (refreshError) {
-                store.clear();
-                return false;
+                console.error("Refresh token failed:", refreshError);
             }
         }
+
+        return { isValid: true, user };
+    } catch (error) {
+        console.error("Session verification failed:", error);
         store.clear();
-        return false;
+        return { isValid: false, user: null };
     }
 }
 
-async function setupUserStatusHandling() {
+async function setupUserStatusHandling(user) {
     try {
-        const tokens = {
-            accessToken: store.get('accessToken'),
-        };
-        
-        console.log("access token: ", tokens.accessToken)
-        const { user } = await authClient.getMe({ access_token: tokens.accessToken });
+        console.log("User Handling: ", user);
 
-        console.log("user: ", user)
+        const call = await statusClient.subscribeToStatusUpdates(user.id);
 
-        await statusClient.updateStatus({
-            userId: user.id,
-            status: 'ONLINE'
+        call.on('data', (update) => {
+            console.log("update: ", update);
+            mainWindow.webContents.send('status-update', {
+                userId: update.userId,
+                status: update.status
+            });
         });
 
-        const subscription = await statusClient.subscribeToStatusUpdates(user.id);
-        
-        subscription.on('data', (update) => {
-            if (mainWindow) {
-                mainWindow.webContents.send('status-update', {
-                    userId: update.userId,
-                    status: update.status
-                });
-            }
+        call.on('error', (err) => {
+            console.error("Stream error:", err);
+            setTimeout(() => setupUserStatusHandling(user), 5000);
         });
 
-        subscription.on('data', (update) => {
-            if (mainWindow) {
-                mainWindow.webContents.send('status-update', update);
-            }
-        });
-
-        subscription.on('error', (err) => {
-            console.error('Status subscription error:', err);
-        });
-
-        mainWindow.on('show', async () => {
-            try {
-                await statusClient.updateStatus({
-                    userId: user.id,
-                    status: 'ONLINE'
-                });
-            } catch (err) {
-                console.error('Failed to update status on window show:', err);
-            }
-        });
-
-        mainWindow.on('hide', async () => {
-            try {
-                await statusClient.updateStatus({
-                    userId: user.id,
-                    status: 'IDLE'
-                });
-            } catch (err) {
-                console.error('Failed to update status on window hide:', err);
-            }
+        call.on('end', () => {
+            console.log("Stream ended");
         });
 
         app.on('before-quit', async () => {
@@ -115,10 +78,6 @@ async function setupUserStatusHandling() {
             }
         });
 
-        console.log("user update: ", user)
-
-        return subscription;
-
     } catch (error) {
         console.error('Failed to setup user status handling:', error);
     }
@@ -127,7 +86,6 @@ async function setupUserStatusHandling() {
 async function createWindow() {
     secureSession = session.fromPartition('persist:secure', { cache: false });
     
-    const isAuthenticated = await verifyUserSession();
     mainWindow = new BrowserWindow({
         width: 800,
         height: 600,
@@ -143,51 +101,27 @@ async function createWindow() {
         }
     });
 
-    const tokens = store.get('tokens') || {};
-    
-    if (tokens.accessToken) {
-        try {
-            const { user } = await authClient.getMe({ access_token: tokens.accessToken });
-            mainWindow.webContents.on('did-finish-load', () => {
-                mainWindow.webContents.send('user-data', user);
-            });
+    const token = store.get('accessToken')
 
-            await mainWindow.loadFile(path.join(__dirname, '../renderer/views/index.html'));
-        } catch (error) {
-            if (tokens.refreshToken) {
-                try {
-                    const newTokens = await authClient.refreshToken({ 
-                        refresh_token: tokens.refreshToken 
-                    });
-                    store.set('tokens', {
-                        accessToken: newTokens.access_token,
-                        refreshToken: newTokens.refresh_token
-                    });
-                    await mainWindow.loadFile(path.join(__dirname, '../renderer/views/index.html'));
-                } catch (refreshError) {
-                    store.delete('tokens');
-                    await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
-                }
-            } else {
-                store.delete('tokens');
-                await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
-            }
+    try {
+        const { isValid } = await verifyUserSession();
+
+        if (!isValid) {
+            await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
+            return;
         }
-    } else {
+        const { user } = await authClient.getMe({ access_token: token });
+        await setupUserStatusHandling(user);
+        
+        mainWindow.webContents.on('did-finish-load', () => {
+            mainWindow.webContents.send('user-data', user);
+        });
+
+        await mainWindow.loadFile(path.join(__dirname, '../renderer/views/index.html'));
+    } catch (error) {
+        console.error("Failed to initialize app:", error);
         await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
     }
-
-    mainWindow.webContents.on('did-stop-loading', async () => {
-    try {
-        if (isAuthenticated) {
-            console.log('Setting up status handling...');
-            await setupUserStatusHandling();
-            console.log('Status handling setup complete');
-        }
-    } catch (err) {
-        console.error('Failed to setup status:', err);
-    }
-});
 
     mainWindow.webContents.openDevTools();
 }
@@ -205,36 +139,21 @@ ipcMain.on('clear-auth-tokens', () => {
 });
 
 ipcMain.on('logout', async () => {
-    const tokens = store.get('tokens') || {};
-    if (tokens.userId) {
-        try {
-            await statusClient.updateStatus({
-                userId: tokens.userId,
-                status: 'OFFLINE'
-            });
-        } catch (error) {
-            console.error('Failed to set offline status:', error);
-        }
-    }
-    store.delete('tokens');
-    if (mainWindow) {
-        await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
-    }
-});
+    const token = store.get('accessToken');
+    const { user } = await authClient.getMe({ access_token: token });
 
-ipcMain.handle('set-user-status', async (_, status) => {
-    const tokens = store.get('tokens') || {};
-    if (!tokens.userId) {
-        throw new Error('User not authenticated');
-    }
-    
     try {
-        return await statusClient.updateStatus({
-            userId: tokens.userId,
-            status
+        await statusClient.updateStatus({
+            userId: user.id,
+            status: 'OFFLINE'
         });
     } catch (error) {
-        throw new Error(error.message);
+        console.error('Failed to set offline status:', error);
+    }
+    store.clear();
+
+    if (mainWindow) {
+        await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
     }
 });
 
@@ -281,11 +200,60 @@ ipcMain.handle('getSearch', async (_, { name, type }) => {
     }
 });
 
-ipcMain.on('window-minimize', () => {
-    if (mainWindow) mainWindow.minimize();
+ipcMain.handle('relationship-create', async (_, data) => {
+    return new Promise((resolve, reject) => {
+        relationshipClient.create_relationship(data, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+        });
+    });
 });
 
-ipcMain.on('window-maximize', () => {
+ipcMain.handle('relationship-update', async (_, data) => {
+    return new Promise((resolve, reject) => {
+        relationshipClient.update_relationship(data, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+        });
+    });
+});
+
+ipcMain.handle('relationship-get-all', async (_, data) => {
+    return new Promise((resolve, reject) => {
+        relationshipClient.get_relationships(data, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+        });
+    });
+});
+
+ipcMain.handle('relationship-get-status', async (_, data) => {
+    return new Promise((resolve, reject) => {
+        relationshipClient.get_relationship_status(data, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+        });
+    });
+});
+
+ipcMain.on('window-minimize', async () => {
+    if (mainWindow) mainWindow.minimize();
+
+    const token = store.get('accessToken');
+    const { user } = await authClient.getMe({ access_token: token });
+
+    try {
+        await statusClient.updateStatus({
+            userId: user.id,
+            status: 'IDLE'
+        });
+    } catch (err) {
+        console.error('Failed to update status on window hide:', err);
+    }
+
+});
+
+ipcMain.on('window-maximize', async () => {
     if (mainWindow) {
         if (mainWindow.isMaximized()) {
             mainWindow.unmaximize();
@@ -293,24 +261,28 @@ ipcMain.on('window-maximize', () => {
             mainWindow.maximize();
         }
     }
+
+    const token = store.get('accessToken');
+    const { user } = await authClient.getMe({ access_token: token });
+
+    try {
+        await statusClient.updateStatus({
+            userId: user.id,
+            status: 'ONLINE'
+        });
+    } catch (err) {
+        console.error('Failed to update status on window show:', err);
+    }
 });
 
 ipcMain.on('window-close', async () => {
-    const tokens = {
-        accessToken: store.get('accessToken'),
-    };
-    
-    console.log("access token: ", tokens.accessToken)
-    const user = await authClient.getMe({ access_token: tokens.accessToken });
-
-    console.log("user: ", user)
+    const token = store.get('accessToken');
+    const { user } = await authClient.getMe({ access_token: token });
 
     await statusClient.updateStatus({
-        userId: user.user.id,
+        userId: user.id,
         status: 'OFFLINE'
     });
-
-    console.log("user: ", user)
 
     if (mainWindow) mainWindow.close();
 });

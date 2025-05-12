@@ -3,6 +3,8 @@ const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 const path = require('path');
 const { hashPassword, hashPhone } = require('./crypto-utils');
+const { resolve } = require('path/posix');
+const { rejects } = require('assert');
 
 const PROTO_PATHS = [
     path.join(__dirname, '../../proto/service_auth.proto'),
@@ -28,6 +30,7 @@ const StatusService = protoDescriptor.status.StatusService;
 const client_auth = new AuthService('localhost:50051', grpc.credentials.createInsecure());
 const client_search = new SearchService('localhost:50051', grpc.credentials.createInsecure());
 const client_status = new StatusService('localhost:50051', grpc.credentials.createInsecure());
+const client_relationship = new RelationshipService('localhost:50051', grpc.credentials.createInsecure());
 
 // Клиентские методы
 const authClient = {
@@ -84,7 +87,14 @@ const authClient = {
 };
 
 const relationsipClient = {
-
+    createRelationship: async ({ current_user, target_user, type }) => {
+        return new Promise((resolve, reject) => {
+            client_relationship.create_relationship({ current_user, target_user, type }, (err, response) =>  {
+                if (err) return reject(err);
+                resolve(response);
+            });
+        });
+    }
 };
 
 const statusClient = {
@@ -113,38 +123,22 @@ const statusClient = {
     },
 
     subscribeToStatusUpdates: (userId) => {
-        return new Promise((resolve, reject) => {
-            const call = client_status.subscribeToStatusUpdates({ user_id: userId });
+        const call = client_status.subscribeToStatusUpdates({ user_id: userId });
 
-            const statusUpdatesStream = {
-                on: (event, callback) => {
+        return Promise.resolve({
+            on: (event, callback) => {
+                call.on(event, (data) => {
                     if (event === 'data') {
-                        call.on('data', (statusUpdate) => {
-
-                            const statusMap = {
-                                0: 'ONLINE',
-                                1: 'OFFLINE',
-                                2: 'IDLE',
-                                3: 'DO_NOT_DISTURB'
-                            };
-                            
-                            callback({
-                                userId: statusUpdate.user_id,
-                                status: statusMap[statusUpdate.status] || 'OFFLINE'
-                            });
+                        callback({
+                            userId: data.user_id,
+                            status: data.status
                         });
-                    } else if (event === 'error') {
-                        call.on('error', callback);
-                    } else if (event === 'end') {
-                        call.on('end', callback);
+                    } else {
+                        callback(data);
                     }
-                },
-                cancel: () => {
-                    call.cancel();
-                }
-            };
-
-            resolve(statusUpdatesStream);
+                });
+            },
+            cancel: () => call.cancel()
         });
     },
 
@@ -171,14 +165,15 @@ const statusClient = {
 };
 
 const searchClient = {
-    getSearch: async ({ name, type }) => {
+    getSearch: async ({ current_user, name, type }) => {
         const request = {
+            current_user,
             name,  
-            type   
+            type 
         };
 
         return new Promise((resolve, reject) => {
-            client_search .getSearch(request, (err, response) => {
+            client_search.getSearch(request, (err, response) => {
                 if (err) return reject(err); 
                 resolve(response); 
             });

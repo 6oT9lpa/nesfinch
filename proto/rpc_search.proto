@@ -11,8 +11,9 @@ enum SearchType {
 }
 
 message SearchRequest {
-    SearchType type = 1;  
-    string name = 2;     
+    string user_id = 1;
+    SearchType type = 2;  
+    string name = 3;     
 }
 
 message Server {
