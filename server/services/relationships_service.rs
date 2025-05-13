@@ -10,11 +10,30 @@ mod communication {
 
 pub use communication::relationship_service_server::{ RelationshipService, RelationshipServiceServer };
 use communication::{UpdateRelationshipRequest, UpdateRelationshipResponse, CreateRelationshipRequest, CreateRelationshipResponse,
-    GetRelationshipsRequest, GetRelationshipsResponse, GetRelationshipStatusRequest, GetRelationshipStatusResponse};
+    GetRelationshipsRequest, GetRelationshipsResponse, GetRelationshipStatusRequest, GetRelationshipStatusResponse,
+    CancelRelationshipRequest, CancelRelationshipResponse};
 
 #[derive(Debug)]
 pub struct MyRelationshipService {
     db: PgPool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RelationshipRow {
+    id: Uuid,
+    username: String,
+    display_name: String,
+    status: String,
+    updated_at: chrono::NaiveDateTime,
+    is_initiator: bool,
+}
+
+
+
+impl MyRelationshipService {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
 }
 
 #[tonic::async_trait]
@@ -102,6 +121,9 @@ impl RelationshipService for MyRelationshipService {
     ) -> Result<Response<GetRelationshipsResponse>, Status> {
         let req = request.into_inner();
 
+        let current_user = Uuid::parse_str(&req.current_user)
+            .map_err(|_| Status::invalid_argument("Invalid current_user UUID"))?;
+
         let rel_type_str = match req.new_type {
             1 => "FRIEND",
             2 => "BLOCKED",
@@ -109,33 +131,83 @@ impl RelationshipService for MyRelationshipService {
             _ => return Err(Status::invalid_argument("Invalid relationship type")),
         };
 
-        let rows = sqlx::query!(
-            r#"
-            SELECT u.id, u.username, ur.status, ur.updated_at
-            FROM user_relationships ur
-            JOIN users u ON ur.target_user_id = u.id
-            WHERE ur.status = $1
-            ORDER BY ur.updated_at DESC
-            LIMIT $2 OFFSET $3
-            "#,
-            rel_type_str,
-            req.limit as i64,
-            
-            req.offset as i64
-        )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| Status::internal(format!("DB fetch error: {}", e)))?;
+        let query = match rel_type_str {
+            "PENDING" => {
+                sqlx::query_as::<_, RelationshipRow>(
+                    r#"
+                    SELECT 
+                        u.id, 
+                        u.username, 
+                        u.display_name, 
+                        'PENDING' as status, 
+                        rr.created_at as updated_at,
+                        false as is_initiator
+                    FROM relationship_requests rr
+                    JOIN users u ON rr.from_user_id = u.id
+                    WHERE rr.to_user_id = $1 AND rr.status = 'PENDING'
+                    UNION ALL
+                    SELECT 
+                        u.id, 
+                        u.username, 
+                        u.display_name, 
+                        'PENDING' as status, 
+                        rr.created_at as updated_at,
+                        true as is_initiator
+                    FROM relationship_requests rr
+                    JOIN users u ON rr.to_user_id = u.id
+                    WHERE rr.from_user_id = $1 AND rr.status = 'PENDING'
+                    ORDER BY updated_at DESC
+                    LIMIT $2 OFFSET $3
+                    "#
+                )
+                .bind(current_user)
+                .bind(req.limit as i64)
+                .bind(req.offset as i64)
+            },
+            _ => {
+                sqlx::query_as::<_, RelationshipRow>(
+                    r#"
+                    SELECT 
+                        u.id, 
+                        u.username, 
+                        u.display_name, 
+                        ur.status, 
+                        ur.updated_at,
+                        (ur.user_id = $1) as is_initiator
+                    FROM user_relationships ur
+                    JOIN users u ON 
+                        (ur.user_id = $1 AND ur.target_user_id = u.id) OR
+                        (ur.target_user_id = $1 AND ur.user_id = u.id)
+                    WHERE ur.status = $2
+                    ORDER BY ur.updated_at DESC
+                    LIMIT $3 OFFSET $4
+                    "#
+                )
+                .bind(current_user)
+                .bind(rel_type_str)
+                .bind(req.limit as i64)
+                .bind(req.offset as i64)
+            }
+        };
+
+        let rows = query
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| Status::internal(format!("DB fetch error: {}", e)))?;
+
+        print!("Rows: {:?}", rows);
 
         let mut users = Vec::new();
         let mut types = Vec::new();
         let mut statuses = Vec::new();
+        let mut initiator_statuses = Vec::new(); 
 
         for row in rows {
             users.push(communication::User {
                 id: row.id.to_string(),
                 username: row.username,
-                status: row.status.clone(),
+                display_name: row.display_name,
+                status: row.status,
                 created_at: Some(prost_types::Timestamp {
                     seconds: row.updated_at.timestamp(),
                     nanos: row.updated_at.timestamp_subsec_nanos() as i32,
@@ -143,7 +215,8 @@ impl RelationshipService for MyRelationshipService {
             });
 
             types.push(req.new_type);
-            statuses.push(1); 
+            statuses.push(if row.is_initiator { 1 } else { 3 }); 
+            initiator_statuses.push(if row.is_initiator { "INITIATOR".to_string() } else { "RECIPIENT".to_string() });
         }
 
         let count = users.len() as i32;
@@ -152,11 +225,10 @@ impl RelationshipService for MyRelationshipService {
             users,
             types,
             statuses,
+            initiator_statuses, 
             total_count: count,
         }))
     }
-
-
     async fn get_relationship_status(
         &self,
         request: Request<GetRelationshipStatusRequest>,
@@ -255,6 +327,39 @@ impl RelationshipService for MyRelationshipService {
                 seconds: created_at.timestamp(),
                 nanos: created_at.timestamp_subsec_nanos() as i32,
             }),
+        }))
+    }
+
+    async fn cancel_relationship(
+        &self,
+        request: Request<CancelRelationshipRequest>
+    ) -> Result<Response<CancelRelationshipResponse>, Status> {
+        let req = request.into_inner();
+
+        let from_user = Uuid::parse_str(&req.current_user)
+        .map_err(|_| Status::invalid_argument("Invalid current_user UUID"))?;
+
+        let to_user = Uuid::parse_str(&req.target_user)
+            .map_err(|_| Status::invalid_argument("Invalid target_user UUID"))?;
+
+        let result = sqlx::query!(
+            r#"
+            DELETE FROM relationship_requests
+            WHERE from_user_id = $1 AND to_user_id = $2 AND status = 'PENDING'
+            "#,
+            from_user,
+            to_user
+        )
+        .execute(&self.db)
+        .await
+        .map_err(|e| Status::internal(format!("DB error: {}", e)))?;
+
+        if result.rows_affected() == 0 {
+            return Err(Status::not_found("No pending request found to cancel"));
+        }
+
+        Ok(Response::new(CancelRelationshipResponse {
+            success: true,
         }))
     }
 }

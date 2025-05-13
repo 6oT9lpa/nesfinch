@@ -7,8 +7,9 @@ import "google/protobuf/timestamp.proto";
 message User {
     string id = 1;
     string username = 2;
-    string status = 3;
-    google.protobuf.Timestamp created_at = 4;
+    string display_name = 3;
+    string status = 4;
+    google.protobuf.Timestamp created_at = 5;
 }
 
 // Типы отношений между пользователями
@@ -30,7 +31,6 @@ enum RelationshipStatus {
 message CreateRelationshipRequest {
     string current_user = 1;
     string target_user = 2;
-    RelationshipType type = 3;
 }
 
 message CreateRelationshipResponse {
@@ -52,16 +52,18 @@ message UpdateRelationshipResponse {
 }
 
 message GetRelationshipsRequest {
-    RelationshipType new_type = 1;
-    int32 limit = 2;
-    int32 offset = 3;
+    string current_user = 1;
+    RelationshipType new_type = 2;
+    int32 limit = 3;
+    int32 offset = 4;
 }
 
 message GetRelationshipsResponse {
     repeated User users = 1;
-    repeated RelationshipType types = 2;
-    repeated RelationshipStatus statuses = 3;
-    int32 total_count = 4;
+    repeated int32 types = 2;
+    repeated int32 statuses = 3;
+    repeated string initiator_statuses = 4;
+    int32 total_count = 5;
 }
 
 message GetRelationshipStatusRequest {
@@ -72,4 +74,13 @@ message GetRelationshipStatusResponse {
     RelationshipType relationship_type = 1;
     RelationshipStatus status = 2;
     google.protobuf.Timestamp updated_at = 3;
+}
+
+message CancelRelationshipRequest {
+    string current_user = 1;
+    string target_user = 2;
+}
+
+message CancelRelationshipResponse {
+    bool success = 1;
 }

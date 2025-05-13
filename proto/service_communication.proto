@@ -16,6 +16,8 @@ service RelationshipService {
 
     // Получение статуса отношений с конкретным пользователем
     rpc GetRelationshipStatus(GetRelationshipStatusRequest) returns (GetRelationshipStatusResponse) {};
+
+    rpc CancelRelationship(CancelRelationshipRequest) returns (CancelRelationshipResponse) {};
 }
 
 service SearchService {

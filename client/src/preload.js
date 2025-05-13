@@ -21,8 +21,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('status-update', (event, update) => callback(update));
     },
 
-    createRelationship: (data) => ipcRenderer.invoke('relationship-create', data),
-    updateRelationship: (data) => ipcRenderer.invoke('relationship-update', data),
-    getRelationships: (data) => ipcRenderer.invoke('relationship-get-all', data),
-    getRelationshipStatus: (data) => ipcRenderer.invoke('relationship-get-status', data),
+    createRelationship: (data) => ipcRenderer.invoke('createRelationship', data),
+    updateRelationship: (data) => ipcRenderer.invoke('updateRelationship', data),
+    getRelationshipStatus: (data) => ipcRenderer.invoke('getRelationshipStatus', data),
+    getRelationships: (data) => ipcRenderer.invoke('getRelationships', data),
+    cancelRelationship: (data) => ipcRenderer.invoke('cancelRelationship', data),
+    
+    onRelationshipUpdate: (callback) => {
+        ipcRenderer.removeAllListeners('relationship-update');
+        ipcRenderer.on('relationship-update', (event, update) => callback(update));
+    },
 });

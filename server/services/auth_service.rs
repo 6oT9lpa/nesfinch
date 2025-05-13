@@ -82,13 +82,14 @@ impl AuthService for MyAuthService {
         let now = Utc::now().naive_utc();
 
         let record = sqlx::query!(
-            "INSERT INTO users (username, phone_hash, email, pasw_hash, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id::uuid, username, email, created_at, updated_at, status, activity_user",
+            "INSERT INTO users (username, phone_hash, email, pasw_hash, display_name, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id::uuid, username, email, created_at, display_name, updated_at, status, activity_user",
             req.username,
             req.phone,
             req.email,
             req.pasw,
+            req.username,
             now,
             now,
         )
@@ -105,7 +106,8 @@ impl AuthService for MyAuthService {
         let user = Some(User {
             id: record.id.to_string(),
             username: record.username,
-            status: record.status.unwrap_or("online".to_string()),
+            display_name: record.display_name.expect("Failed display name!"),
+            status: record.status.unwrap_or("Online".to_string()),
             activity_user: record.activity_user.unwrap_or("".to_string()),   
             created_at: Some(prost_types::Timestamp {
                 seconds: record.created_at.and_utc().timestamp(),
@@ -126,7 +128,7 @@ impl AuthService for MyAuthService {
         println!("SignIn attempt with phone_hash: {}", req.phone);
     
         let record = sqlx::query!(
-            "SELECT id::uuid as id, pasw_hash, status FROM users WHERE phone_hash = $1",
+            "SELECT id::uuid as id, pasw_hash, username, status, display_name, activity_user, created_at FROM users WHERE phone_hash = $1",
             req.phone
         )
         .fetch_optional(&self.db)
@@ -140,6 +142,8 @@ impl AuthService for MyAuthService {
             println!("User not found with phone_hash: {}", req.phone);
             return Err(Status::not_found("User not found"));
         };
+
+        print!("{:?}", user);
     
         println!("User found - ID: {}", user.id.to_string());
         let password_valid = verify(&req.password, &user.pasw_hash)
@@ -154,13 +158,23 @@ impl AuthService for MyAuthService {
         }
     
         println!("Generating tokens for user ID: {}", user.id.to_string());
-        let access_token = create_jwt(&user.id.to_string(), &self.jwt_secret, 3600)?; // 1 hour
-        let refresh_token = create_jwt(&user.id.to_string(), &self.jwt_secret, 7 * 24 * 3600)?; // 7 days
+        let access_token = create_jwt(&user.id.to_string(), &self.jwt_secret, 3600)?; 
+        let refresh_token = create_jwt(&user.id.to_string(), &self.jwt_secret, 7 * 24 * 3600)?; 
     
         Ok(Response::new(SignInUserResponse {
-            status: user.status.unwrap_or("online".to_string()),
             access_token,
             refresh_token,
+            user: Some(User {
+                id: user.id.to_string(),
+                username: user.username,
+                display_name: user.display_name.expect("Failed display name!"),
+                status: user.status.unwrap_or("Online".to_string()),
+                activity_user: user.activity_user.unwrap_or("".to_string()),
+                created_at: Some(prost_types::Timestamp {
+                    seconds: user.created_at.and_utc().timestamp(),
+                    nanos: user.created_at.and_utc().timestamp_subsec_nanos() as i32,
+                }), 
+            }),
         }))
     }
     async fn get_me(
@@ -181,7 +195,7 @@ impl AuthService for MyAuthService {
         let user_id = Uuid::parse_str(&token_data.claims.sub).map_err(|_| Status::invalid_argument("Invalid user ID"))?;
 
         let user = sqlx::query!(
-            "SELECT id::uuid as id, username, status, activity_user, created_at FROM users WHERE id = $1",
+            "SELECT id::uuid as id, username, status, display_name, activity_user, created_at FROM users WHERE id = $1",
             user_id
         )
         .fetch_optional(&self.db)
@@ -196,6 +210,7 @@ impl AuthService for MyAuthService {
             user: Some(User {
                 id: user.id.to_string(),
                 username: user.username,
+                display_name: user.display_name.expect("Failed display name!"),
                 status: user.status.unwrap_or("online".to_string()),
                 activity_user: user.activity_user.unwrap_or("".to_string()),
                 created_at: Some(prost_types::Timestamp {

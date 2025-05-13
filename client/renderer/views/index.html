@@ -47,7 +47,7 @@
                             <i class="fa fa-users" aria-hidden="true"></i>
                             <a class="btn">Друзья</a>
                         </div>
-                        <div class="fa-btn btn-request">
+                        <div class="fa-btn btn-request" id="btn-request">
                             <i class="fa fa-envelope" aria-hidden="true"></i>
                             <a class="btn">Запросы общения</a>
                         </div>
@@ -112,11 +112,11 @@
                     <div class="header-content">
                         <div class="interaction-users">
                             <a class="messager"><i class="fa fa-comment" aria-hidden="true"></i></a>
-                            <a class="add-friend"><i class="fa fa-user-plus" aria-hidden="true"></i> Добавить в друзья</a>
+                            <a class="add-friend" id="profile-target-user"><i class="fa fa-user-plus" aria-hidden="true"></i> Добавить в друзья</a>
                         </div>
                         <div class="nickname-users">
-                            <h4>Display Name</h4>
-                            <p>usrname</p>
+                            <h4 id="profile-displayname" >Display Name</h4>
+                            <p id="profile-username" >username</p>
                         </div>
                     </div>
                     <div class="navbar-users">
@@ -132,5 +132,6 @@
 
         <script src="../scripts/app.js"></script>
         <script src="../scripts/router.js"></script>
+        <script src="../scripts/relationships.js"></script>
     </body>
 </html>

@@ -86,10 +86,63 @@ const authClient = {
     }
 };
 
-const relationsipClient = {
-    createRelationship: async ({ current_user, target_user, type }) => {
+const relationshipClient = {
+    createRelationship: async ({ current_user, target_user }) => {
         return new Promise((resolve, reject) => {
-            client_relationship.create_relationship({ current_user, target_user, type }, (err, response) =>  {
+            client_relationship.createRelationship({ 
+                current_user, 
+                target_user
+            }, (err, response) => {
+                if (err) return reject(err);
+                resolve(response);
+            });
+        });
+    },
+    
+    updateRelationship: async ({ current_user, target_user, new_type, new_status }) => {
+        return new Promise((resolve, reject) => {
+            client_relationship.updateRelationship({ 
+                current_user, 
+                target_user, 
+                new_type, 
+                new_status 
+            }, (err, response) => {
+                if (err) return reject(err);
+                resolve(response);
+            });
+        });
+    },
+    
+    getRelationshipStatus: async ({ current_user, target_user }) => {
+        return new Promise((resolve, reject) => {
+            client_relationship.getRelationshipStatus({ 
+                target_user_id: target_user 
+            }, (err, response) => {
+                if (err) return reject(err);
+                resolve(response);
+            });
+        });
+    },
+    
+    getRelationships: async ({ current_user, type, limit, offset }) => {
+        return new Promise((resolve, reject) => {
+            client_relationship.getRelationships({ 
+                current_user,
+                new_type: type,
+                limit,
+                offset 
+            }, (err, response) => {
+                if (err) return reject(err);
+                resolve(response);
+            });
+        });
+    },
+
+    cancelRelationship: async ({ current_user, target_user }) => {
+        return new Promise((resolve, reject) => {
+            client_relationship.cancelRelationship({
+                current_user, target_user
+            }, (err, response) => {
                 if (err) return reject(err);
                 resolve(response);
             });
@@ -181,4 +234,4 @@ const searchClient = {
     }
 };
 
-module.exports = { authClient, relationsipClient, searchClient, statusClient };
+module.exports = { authClient, relationshipClient, searchClient, statusClient };

@@ -487,6 +487,7 @@ span.status-text {
 }
 
 .swap-load-content {
+    color: var(--primary-color);
     padding: 8px 14px;
     cursor: pointer;
     transition: var(--transition);

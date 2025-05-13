@@ -174,22 +174,17 @@ function hideModal(modalID) {
     modal.style.display = 'none';
 }
 
-function openUserProfile(userId) {
+function openUserProfile(user) {
     showModal('profile-users');
-    
-    window.electronAPI.invoke('getUserProfile', { userId })
-    .then(user => {
-        document.getElementById('profile-username').textContent = user.username;
-        document.getElementById('profile-displayname').textContent = user.displayName || user.username;
-        document.getElementById('profile-status').textContent = user.status;
-        
-        if (user.avatarUrl) {
-            document.querySelector('.profile-users .avatar-users img').src = user.avatarUrl;
-        }
-    })
-    .catch(error => {
-        console.error('Ошибка загрузки профиля:', error);
-    });
+
+    console.log(user);
+    document.getElementById('profile-target-user').dataset.target_user = user.id;
+    document.getElementById('profile-username').textContent = user.username;
+    document.getElementById('profile-displayname').textContent = user.display_name;
+
+    if (user.avatarUrl) {
+        document.querySelector('.profile-users .avatar-users img').src = user.avatarUrl;
+    }    
 }
 
 let searchTimeout = null;
@@ -264,7 +259,7 @@ function displaySearchResults(results) {
             
             userElement.addEventListener('click', (e) => {
                 e.preventDefault();
-                openUserProfile(user.id);
+                openUserProfile(user);
             });
         });
     }
@@ -285,7 +280,6 @@ function displaySearchResults(results) {
     }
 }
 
- // Обработка данных пользователя
 window.electronAPI.onUserData((user) => {
     console.log('User data received:', user);
     updateUserUI(user);
@@ -358,3 +352,4 @@ function formatStatusText(status) {
     };
     return statusMap[status.toLowerCase()] || status;
 }
+

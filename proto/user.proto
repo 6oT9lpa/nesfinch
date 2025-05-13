@@ -7,9 +7,10 @@ import "google/protobuf/timestamp.proto";
 message User {
     string id = 1;
     string username = 2;
-    string status = 3;
-    string activity_user = 4;
-    google.protobuf.Timestamp created_at = 5;
+    string display_name = 3;
+    string status = 4;
+    string activity_user = 5;
+    google.protobuf.Timestamp created_at = 6;
 }
 
 message GenericResponse {

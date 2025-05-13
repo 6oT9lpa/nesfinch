@@ -1,6 +1,7 @@
 syntax = "proto3";
-
 package auth;
+
+import "user.proto";
 
 message SignInUserInput {
     string phone = 1;
@@ -8,7 +9,7 @@ message SignInUserInput {
 }
 
 message SignInUserResponse {
-    string status = 1;
-    string access_token = 2;
-    string refresh_token = 3;
+    string access_token = 1;
+    string refresh_token = 2;
+    User user = 3;
 }

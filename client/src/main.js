@@ -14,34 +14,46 @@ async function verifyUserSession() {
         refreshToken: store.get('refreshToken'),
     };
 
-    console.log("accessToken: ", tokens.accessToken);
-    console.log("refreshToken", tokens.refreshToken);
+    console.log("Current tokens:", tokens);
 
-    if (!tokens.accessToken) {
+    if (!tokens.accessToken && !tokens.refreshToken) {
+        console.log("No tokens found");
         return { isValid: false, user: null };
     }
 
-    try {
-        const user = await authClient.getMe({ access_token: tokens.accessToken });
-
-        if (tokens.refreshToken) {
-            try {
-                const newTokens = await authClient.refreshToken({
-                    refresh_token: tokens.refreshToken,
-                });
-                store.set('accessToken', newTokens.access_token);
-                store.set('refreshToken', newTokens.refresh_token);
-            } catch (refreshError) {
-                console.error("Refresh token failed:", refreshError);
-            }
+    if (tokens.accessToken) {
+        try {
+            const user = await authClient.getMe({ access_token: tokens.accessToken });
+            console.log("Access token is valid");
+            return { isValid: true, user };
+        } catch (error) {
+            console.error("Access token validation failed:", error);
         }
-
-        return { isValid: true, user };
-    } catch (error) {
-        console.error("Session verification failed:", error);
-        store.clear();
-        return { isValid: false, user: null };
     }
+
+    if (tokens.refreshToken) {
+        try {
+            console.log("Attempting to refresh tokens");
+            const newTokens = await authClient.refreshToken({
+                refresh_token: tokens.refreshToken,
+            });
+
+            console.log("New tokens received:", newTokens);
+            store.set('accessToken', newTokens.access_token);
+            store.set('refreshToken', newTokens.refresh_token);
+            
+            console.log("access token: ", newTokens.access_token)
+            const user = await authClient.getMe({ access_token: newTokens.access_token });
+            console.log("Tokens refreshed successfully");
+            return { isValid: true, user };
+        } catch (refreshError) {
+            console.error("Refresh token failed:", refreshError);
+            store.clear();
+            return { isValid: false, user: null };
+        }
+    }
+
+    return { isValid: false, user: null };
 }
 
 async function setupUserStatusHandling(user) {
@@ -65,17 +77,6 @@ async function setupUserStatusHandling(user) {
 
         call.on('end', () => {
             console.log("Stream ended");
-        });
-
-        app.on('before-quit', async () => {
-            try {
-                await statusClient.updateStatus({
-                    userId: user.id,
-                    status: 'OFFLINE'
-                });
-            } catch (err) {
-                console.error('Failed to update status on app quit:', err);
-            }
         });
 
     } catch (error) {
@@ -171,12 +172,14 @@ ipcMain.handle('signInUser', async (_, data) => {
         store.set('accessToken', response.access_token);
         store.set('refreshToken', response.refresh_token);
 
-        if (response.user && response.user.user.id) {
-            await statusClient.updateStatus({
-                userId: response.user.user.id,
-                status: 'ONLINE'
-            });
-        }
+        console.log("singInUser: ", response);
+
+        await setupUserStatusHandling(response.user);
+
+        await statusClient.updateStatus({
+            userId: response.user.id,
+            status: 'ONLINE'
+        });
 
         return response;
     } catch (error) {
@@ -200,57 +203,75 @@ ipcMain.handle('getSearch', async (_, { name, type }) => {
     }
 });
 
-ipcMain.handle('relationship-create', async (_, data) => {
-    return new Promise((resolve, reject) => {
-        relationshipClient.create_relationship(data, (err, res) => {
-            if (err) return reject(err);
-            resolve(res);
-        });
-    });
+ipcMain.handle('createRelationship', async (_, data) => {
+    try {
+        const token = store.get('accessToken');
+        const { user } = await authClient.getMe({ access_token: token });
+        data.current_user = user.id;
+        return await relationshipClient.createRelationship(data);
+    } catch (error) {
+        throw new Error(error.message);
+    }
 });
 
-ipcMain.handle('relationship-update', async (_, data) => {
-    return new Promise((resolve, reject) => {
-        relationshipClient.update_relationship(data, (err, res) => {
-            if (err) return reject(err);
-            resolve(res);
-        });
-    });
+ipcMain.handle('updateRelationship', async (_, data) => {
+    try {
+        const token = store.get('accessToken');
+        const { user } = await authClient.getMe({ access_token: token });
+        data.current_user = user.id;
+        return await relationshipClient.updateRelationship(data);
+    } catch (error) {
+        throw new Error(error.message);
+    }
 });
 
-ipcMain.handle('relationship-get-all', async (_, data) => {
-    return new Promise((resolve, reject) => {
-        relationshipClient.get_relationships(data, (err, res) => {
-            if (err) return reject(err);
-            resolve(res);
-        });
-    });
+ipcMain.handle('getRelationshipStatus', async (_, data) => {
+    try {
+        const token = store.get('accessToken');
+        const { user } = await authClient.getMe({ access_token: token });
+        data.current_user = user.id;
+        return await relationshipClient.getRelationshipStatus(data);
+    } catch (error) {
+        throw new Error(error.message);
+    }
 });
 
-ipcMain.handle('relationship-get-status', async (_, data) => {
-    return new Promise((resolve, reject) => {
-        relationshipClient.get_relationship_status(data, (err, res) => {
-            if (err) return reject(err);
-            resolve(res);
-        });
-    });
+ipcMain.handle('getRelationships', async (_, data) => {
+    try {
+        const token = store.get('accessToken');
+        const { user } = await authClient.getMe({ access_token: token });
+
+        data.current_user = user.id;
+        return await relationshipClient.getRelationships(data);
+    } catch (error) {
+        throw new Error(error.message);
+    }
+});
+
+ipcMain.handle('cancelRelationship', async (_, data) => {
+    try {
+        const token = store.get('accessToken');
+        const { user } = await authClient.getMe({ access_token: token });
+        data.current_user = user.id;
+
+        return await relationshipClient.cancelRelationship(data);
+    } catch (error) {
+        throw new Error(error.message);
+    }
 });
 
 ipcMain.on('window-minimize', async () => {
     if (mainWindow) mainWindow.minimize();
 
     const token = store.get('accessToken');
-    const { user } = await authClient.getMe({ access_token: token });
+    if (token) {
+        const { user } = await authClient.getMe({ access_token: token });
 
-    try {
         await statusClient.updateStatus({
             userId: user.id,
             status: 'IDLE'
         });
-    } catch (err) {
-        console.error('Failed to update status on window hide:', err);
     }
-
 });
 
 ipcMain.on('window-maximize', async () => {
@@ -261,33 +282,42 @@ ipcMain.on('window-maximize', async () => {
             mainWindow.maximize();
         }
     }
-
     const token = store.get('accessToken');
-    const { user } = await authClient.getMe({ access_token: token });
+    if (token) {
+        const { user } = await authClient.getMe({ access_token: token });
 
-    try {
         await statusClient.updateStatus({
             userId: user.id,
             status: 'ONLINE'
         });
-    } catch (err) {
-        console.error('Failed to update status on window show:', err);
     }
 });
 
 ipcMain.on('window-close', async () => {
     const token = store.get('accessToken');
-    const { user } = await authClient.getMe({ access_token: token });
+    if (token) {
+        const { user } = await authClient.getMe({ access_token: token });
 
-    await statusClient.updateStatus({
-        userId: user.id,
-        status: 'OFFLINE'
-    });
-
+        await statusClient.updateStatus({
+            userId: user.id,
+            status: 'OFFLINE'
+        });
+    }
+    
     if (mainWindow) mainWindow.close();
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async() => {
+    const token = store.get('accessToken');
+    if (token) {
+        const { user } = await authClient.getMe({ access_token: token });
+
+        await statusClient.updateStatus({
+            userId: user.id,
+            status: 'OFFLINE'
+        });
+    }
+
     if (process.platform !== 'darwin') app.quit();
 });
 

@@ -3,7 +3,6 @@ use sqlx::PgPool;
 use tokio::sync::broadcast;
 use std::pin::Pin; 
 use futures_core::Stream;
-use futures_util::stream;
 
 mod status_user {
     tonic::include_proto!("status");
@@ -175,6 +174,5 @@ impl StatusService for MyStatusService {
         };
 
         Ok(Response::new(Box::pin(output_stream)))
-
     }
 }
