@@ -116,7 +116,7 @@ const relationshipClient = {
     getRelationshipStatus: async ({ current_user, target_user }) => {
         return new Promise((resolve, reject) => {
             client_relationship.getRelationshipStatus({ 
-                target_user_id: target_user 
+                current_user, target_user
             }, (err, response) => {
                 if (err) return reject(err);
                 resolve(response);

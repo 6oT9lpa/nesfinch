@@ -174,17 +174,32 @@ function hideModal(modalID) {
     modal.style.display = 'none';
 }
 
-function openUserProfile(user) {
+async function loadRelationshipRequests(user_id) {
+    const response = await window.electronAPI.invoke('getRelationshipStatus', {
+        target_user: user_id
+    });
+
+    return response;
+}
+
+async function openUserProfile(user) {
     showModal('profile-users');
 
-    console.log(user);
-    document.getElementById('profile-target-user').dataset.target_user = user.id;
+    let response = await loadRelationshipRequests(user.id);
+    console.log("response: ", response);
+
+    const targetUserBtn = document.getElementById('profile-target-user');
+    targetUserBtn.dataset.target_user = user.id;
+
+    if (response.success) {
+        targetUserBtn.style.display = "none";
+    } else {
+        targetUserBtn.style.display = "block";
+    }
+
     document.getElementById('profile-username').textContent = user.username;
     document.getElementById('profile-displayname').textContent = user.display_name;
-
-    if (user.avatarUrl) {
-        document.querySelector('.profile-users .avatar-users img').src = user.avatarUrl;
-    }    
+    document.querySelector('.profile-users .avatar-users img').src = user.avatarUrl || "../../assets/logo/logo.svg";
 }
 
 let searchTimeout = null;
@@ -257,7 +272,7 @@ function displaySearchResults(results) {
             `;
             resultsContainer.appendChild(userElement);
             
-            userElement.addEventListener('click', (e) => {
+            userElement.addEventListener('click', async function(e) {
                 e.preventDefault();
                 openUserProfile(user);
             });
@@ -281,7 +296,6 @@ function displaySearchResults(results) {
 }
 
 window.electronAPI.onUserData((user) => {
-    console.log('User data received:', user);
     updateUserUI(user);
 });
 
@@ -293,7 +307,6 @@ function updateUserUI(user) {
 }
 
 window.electronAPI.onStatusUpdate((update) => {
-    console.log('Status update received:', update);
     handleStatusUpdate(update);
 });
 

@@ -46,9 +46,7 @@ message UpdateRelationshipRequest {
 }
 
 message UpdateRelationshipResponse {
-    RelationshipType current_type = 1;
-    RelationshipStatus current_status = 2;
-    google.protobuf.Timestamp updated_at = 3;
+    bool success = 1;
 }
 
 message GetRelationshipsRequest {
@@ -67,12 +65,12 @@ message GetRelationshipsResponse {
 }
 
 message GetRelationshipStatusRequest {
-    string target_user_id = 1;
+    string target_user = 1;
+    string current_user = 2;
 }
 
 message GetRelationshipStatusResponse {
-    RelationshipType relationship_type = 1;
-    RelationshipStatus status = 2;
+    bool success = 1;
     google.protobuf.Timestamp updated_at = 3;
 }
 

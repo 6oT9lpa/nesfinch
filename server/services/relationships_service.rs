@@ -47,7 +47,6 @@ impl RelationshipService for MyRelationshipService {
         let new_status = match req.new_status {
             1 => "ACCEPTED",
             2 => "REJECTED",
-            3 => "PENDING",
             _ => return Err(Status::invalid_argument("Invalid status")),
         };
 
@@ -106,12 +105,7 @@ impl RelationshipService for MyRelationshipService {
         })?;
 
         Ok(Response::new(UpdateRelationshipResponse {
-            current_type: req.new_type,
-            current_status: req.new_status,
-            updated_at: Some(prost_types::Timestamp {
-                seconds: updated_at.timestamp(),
-                nanos: updated_at.timestamp_subsec_nanos() as i32,
-            }),
+            success: true,
         }))
     }
 
@@ -235,16 +229,20 @@ impl RelationshipService for MyRelationshipService {
     ) -> Result<Response<GetRelationshipStatusResponse>, Status> {
         let req = request.into_inner();
 
-        let target_id = Uuid::parse_str(&req.target_user_id)
+        let current_user = Uuid::parse_str(&req.current_user)
+            .map_err(|_| Status::invalid_argument("Invalid target_user_id UUID"))?;
+
+        let target_user = Uuid::parse_str(&req.target_user)
             .map_err(|_| Status::invalid_argument("Invalid target_user_id UUID"))?;
 
         let row = sqlx::query!(
             r#"
             SELECT status, updated_at
             FROM user_relationships
-            WHERE target_user_id = $1
+            WHERE user_id = $1 AND target_user_id = $2
             "#,
-            target_id
+            current_user,
+            target_user
         )
         .fetch_optional(&self.db)
         .await
@@ -258,9 +256,8 @@ impl RelationshipService for MyRelationshipService {
                 _ => 0,
             };
 
-            return Ok(Response::new(GetRelationshipStatusResponse {
-                relationship_type: rel_type,
-                status: 1, 
+            return Ok(Response::new(GetRelationshipStatusResponse { 
+                success: true,
                 updated_at: Some(prost_types::Timestamp {
                     seconds: r.updated_at.timestamp(),
                     nanos: r.updated_at.timestamp_subsec_nanos() as i32,
@@ -269,8 +266,7 @@ impl RelationshipService for MyRelationshipService {
         }
 
         Ok(Response::new(GetRelationshipStatusResponse {
-            relationship_type: 0,
-            status: 0,
+            success: false,
             updated_at: None,
         }))
     }

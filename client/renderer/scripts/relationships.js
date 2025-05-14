@@ -1,8 +1,6 @@
 document.getElementById('profile-target-user').addEventListener('click', async function(e) {
     e.preventDefault();
-
     target_user = this.dataset.target_user;
-    console.log('target_user: ', target_user);
 
     await addFriend(target_user)
 });
@@ -13,9 +11,12 @@ async function addFriend(targetUserId) {
             target_user: targetUserId
         });
         
+        const targetUserBtn = document.getElementById('profile-target-user');
+        if (targetUserBtn.dataset.target_user === targetUserId) {
+            targetUserBtn.style.display = "none";
+        }
     } catch (error) {
         console.error('Error adding friend:', error);
-        showToast('Ошибка при отправке запроса', 'error');
     }
 }
 
@@ -162,8 +163,11 @@ function createRequestSection(users, isInitiator) {
 function addRequestButtonsHandlers() {
     document.querySelectorAll('.btn-accept')?.forEach(btn => {
         btn.addEventListener('click', async () => {
-            await acceptFriendRequest(btn.dataset.id);
-            updateRequestsDisplay();
+            let res = await acceptFriendRequest(btn.dataset.id);
+            if (res) {
+                updateRequestsDisplay();
+            }
+            
         });
     });
     
@@ -177,10 +181,9 @@ function addRequestButtonsHandlers() {
     document.querySelectorAll('.btn-cancel')?.forEach(btn => {
         btn.addEventListener('click', async () => {
             res = await cancelFriendRequest(btn.dataset.id);
-            updateRequestsDisplay();
-
+            
             if (res) {
-                showSuccessNotification("Вы отклонили зявку в друзья")
+                updateRequestsDisplay();
             }
         });
     });
@@ -191,10 +194,11 @@ async function updateRequestsDisplay() {
     await displayFriendRequests(loadRequests);
     
     const pendingBtn = document.querySelector('.pending-requests-btn');
-    if (pendingBtn) {
-        pendingBtn.textContent = loadRequests.total_count > 0 
-            ? `Ожидание (${loadRequests.total_count})` 
-            : 'Ожидание';
+    if (pendingBtn && loadRequests.total_count > 0) {
+        pendingBtn.textContent = `Ожидание (${loadRequests.total_count})`;
+    }
+    else if (pendingBtn && loadRequests.total_count === 0) {
+        pendingBtn.style.display = "none";
     }
 }
 
@@ -206,30 +210,20 @@ async function cancelFriendRequest(user_id) {
     return response;
 }
 
-function showSuccessNotification(message, duration = 3000) {
-    const notification = document.createElement('div');
-    notification.className = 'success-notification';
-    
-    notification.innerHTML = `
-        <i class="fas fa-check-circle"></i>
-        <span>${message}</span>
-        <span class="success-notification-close">&times;</span>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => notification.classList.add('show'), 10);
-    
-    notification.querySelector('.success-notification-close').addEventListener('click', () => {
-        closeNotification(notification);
-    });
-    
-    setTimeout(() => closeNotification(notification), duration);
-    
-    return notification;
+async function acceptFriendRequest(user_id) {
+    const response = await window.electronAPI.invoke('updateRelationship', {
+        target_user: user_id,
+        new_status: 1,
+        new_type: 1
+    })
+    return response;
 }
 
-function closeNotification(notification) {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
+async function declineFriendRequest(user_id) {
+    const response = await window.electronAPI.invoke('updateRelationship', {
+        target_user: user_id,
+        new_status: 2,
+        new_type: 3
+    })
+    return response;
 }

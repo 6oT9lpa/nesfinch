@@ -28,6 +28,7 @@ async function verifyUserSession() {
             return { isValid: true, user };
         } catch (error) {
             console.error("Access token validation failed:", error);
+            store.delete('accessToken');
         }
     }
 
@@ -88,7 +89,7 @@ async function createWindow() {
     secureSession = session.fromPartition('persist:secure', { cache: false });
     
     mainWindow = new BrowserWindow({
-        width: 800,
+        width: 850,
         height: 600,
         resizable: true,
         frame: false,
@@ -141,20 +142,33 @@ ipcMain.on('clear-auth-tokens', () => {
 
 ipcMain.on('logout', async () => {
     const token = store.get('accessToken');
-    const { user } = await authClient.getMe({ access_token: token });
-
+    
     try {
-        await statusClient.updateStatus({
-            userId: user.id,
-            status: 'OFFLINE'
-        });
+        if (token) {
+            const { user } = await authClient.getMe({ access_token: token });
+            await statusClient.updateStatus({
+                userId: user.id,
+                status: 'OFFLINE'
+            });
+        }
     } catch (error) {
         console.error('Failed to set offline status:', error);
     }
+
     store.clear();
+
+    if (secureSession) {
+        await secureSession.clearStorageData({
+            storages: ['cookies', 'localstorage', 'indexdb', 'websql']
+        });
+        await secureSession.clearCache();
+        await secureSession.clearAuthCache();
+        await secureSession.clearHostResolverCache();
+    }
 
     if (mainWindow) {
         await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
+        mainWindow.webContents.reloadIgnoringCache();
     }
 });
 

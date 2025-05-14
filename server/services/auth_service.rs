@@ -44,7 +44,6 @@ fn create_jwt(user_id: &str, secret: &str, expiration_sec: i64) -> Result<String
     })
 }
 
-
 impl MyAuthService {
     pub fn new(db: PgPool, jwt_secret: String) -> Self {
         Self { db, jwt_secret }
