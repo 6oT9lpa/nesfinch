@@ -1,60 +1,85 @@
 const { app, BrowserWindow, Menu, ipcMain, session } = require('electron');
 const { authClient, searchClient, statusClient, relationshipClient } = require('./clientgRPC');
 const path = require('path');
-const store  = require('./store');
+const store = require('./store');
 
 Menu.setApplicationMenu(null);
 
 let mainWindow;
 let secureSession;
 
-async function verifyUserSession() {
-    const tokens = {
-        accessToken: store.get('accessToken'),
-        refreshToken: store.get('refreshToken'),
-    };
-
-    console.log("Current tokens:", tokens);
-
-    if (!tokens.accessToken && !tokens.refreshToken) {
-        console.log("No tokens found");
-        return { isValid: false, user: null };
-    }
-
-    if (tokens.accessToken) {
-        try {
-            const user = await authClient.getMe({ access_token: tokens.accessToken });
-            console.log("Access token is valid");
-            return { isValid: true, user };
-        } catch (error) {
-            console.error("Access token validation failed:", error);
-            store.delete('accessToken');
-        }
-    }
-
-    if (tokens.refreshToken) {
-        try {
-            console.log("Attempting to refresh tokens");
-            const newTokens = await authClient.refreshToken({
-                refresh_token: tokens.refreshToken,
-            });
-
-            console.log("New tokens received:", newTokens);
-            store.set('accessToken', newTokens.access_token);
-            store.set('refreshToken', newTokens.refresh_token);
+async function withTokenRefresh(fn) {
+    try {
+        return await fn();
+    } catch (error) {
+        if (error.code === 16) { 
+            const refreshToken = store.get('refreshToken');
+            if (!refreshToken) throw error;
             
-            console.log("access token: ", newTokens.access_token)
-            const user = await authClient.getMe({ access_token: newTokens.access_token });
-            console.log("Tokens refreshed successfully");
-            return { isValid: true, user };
-        } catch (refreshError) {
-            console.error("Refresh token failed:", refreshError);
-            store.clear();
+            try {
+                const newTokens = await authClient.refreshToken({
+                    refresh_token: refreshToken
+                });
+                
+                store.set('accessToken', newTokens.access_token);
+                store.set('refreshToken', newTokens.refresh_token);
+                
+                return await fn();
+            } catch (refreshError) {
+                console.error("Token refresh failed:", refreshError);
+                store.set('accessToken', null);
+                store.set('refreshToken', null);
+                throw refreshError;
+            }
+        }
+        throw error;
+    }
+}
+
+async function verifyUserSession() {
+    try {
+        const accessToken = store.get('accessToken');
+        const refreshToken = store.get('refreshToken');
+
+        if (!accessToken && !refreshToken) {
             return { isValid: false, user: null };
         }
-    }
 
-    return { isValid: false, user: null };
+        if (accessToken) {
+            try {
+                const { user } = await authClient.getMe({ access_token: accessToken });
+                return { isValid: true, user };
+            } catch (error) {
+                if (error.code === 16 && refreshToken) { // Unauthorized
+                    try {
+                        const newTokens = await authClient.refreshToken({
+                            refresh_token: refreshToken
+                        });
+                        
+                        store.set('accessToken', newTokens.access_token);
+                        store.set('refreshToken', newTokens.refresh_token);
+                        
+                        const { user } = await authClient.getMe({ 
+                            access_token: newTokens.access_token 
+                        });
+                        return { isValid: true, user };
+                    } catch (refreshError) {
+                        console.error("Refresh failed:", refreshError);
+                        store.set('accessToken', null);
+                        store.set('refreshToken', null);
+                        return { isValid: false, user: null };
+                    }
+                }
+                store.set('accessToken', null);
+                return { isValid: false, user: null };
+            }
+        }
+
+        return { isValid: false, user: null };
+    } catch (error) {
+        console.error("Session verification error:", error);
+        return { isValid: false, user: null };
+    }
 }
 
 async function setupUserStatusHandling(user) {
@@ -89,11 +114,11 @@ async function createWindow() {
     secureSession = session.fromPartition('persist:secure', { cache: false });
     
     mainWindow = new BrowserWindow({
-        width: 850,
+        width: 900,
         height: 600,
         resizable: true,
         frame: false,
-        minWidth: 815,
+        minWidth: 900,
         minHeight: 505,
         webPreferences: {
             session: secureSession,
@@ -103,23 +128,35 @@ async function createWindow() {
         }
     });
 
-    const token = store.get('accessToken')
-
     try {
-        const { isValid } = await verifyUserSession();
+        const { isValid, user } = await verifyUserSession();
 
         if (!isValid) {
             await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
             return;
         }
-        const { user } = await authClient.getMe({ access_token: token });
+
         await setupUserStatusHandling(user);
+
+        await statusClient.updateStatus({
+            userId: user.id,
+            status: 'ONLINE'
+        });
         
-        mainWindow.webContents.on('did-finish-load', () => {
-            mainWindow.webContents.send('user-data', user);
+        mainWindow.webContents.on('did-finish-load', async () => {
+            try {
+                const { isValid, user } = await verifyUserSession();
+                if (isValid && user) {
+                    store.set('userData', user);
+                    mainWindow.webContents.send('user-data', user);
+                }
+            } catch (error) {
+                console.error("Failed to send user data:", error);
+            }
         });
 
         await mainWindow.loadFile(path.join(__dirname, '../renderer/views/index.html'));
+
     } catch (error) {
         console.error("Failed to initialize app:", error);
         await mainWindow.loadFile(path.join(__dirname, '../renderer/views/auth/login.html'));
@@ -129,15 +166,20 @@ async function createWindow() {
 }
 
 ipcMain.on('set-auth-tokens', (_, tokens) => {
-    store.set('tokens', tokens);
+    store.set('accessToken', tokens.access_token);
+    store.set('refreshToken', tokens.refresh_token);
 });
 
 ipcMain.handle('get-auth-tokens', () => {
-    return store.get('tokens') || {};
+    return {
+        access_token: store.get('accessToken'),
+        refresh_token: store.get('refreshToken')
+    };
 });
 
 ipcMain.on('clear-auth-tokens', () => {
-    store.delete('tokens');
+    store.set('accessToken', null);
+    store.set('refreshToken', null);
 });
 
 ipcMain.on('logout', async () => {
@@ -145,7 +187,9 @@ ipcMain.on('logout', async () => {
     
     try {
         if (token) {
-            const { user } = await authClient.getMe({ access_token: token });
+            const { user } = await withTokenRefresh(async () => {
+                return await authClient.getMe({ access_token: token });
+            });
             await statusClient.updateStatus({
                 userId: user.id,
                 status: 'OFFLINE'
@@ -155,7 +199,8 @@ ipcMain.on('logout', async () => {
         console.error('Failed to set offline status:', error);
     }
 
-    store.clear();
+    store.set('accessToken', null);
+    store.set('refreshToken', null);
 
     if (secureSession) {
         await secureSession.clearStorageData({
@@ -185,15 +230,19 @@ ipcMain.handle('signInUser', async (_, data) => {
         const response = await authClient.signInUser(data);
         store.set('accessToken', response.access_token);
         store.set('refreshToken', response.refresh_token);
-
-        console.log("singInUser: ", response);
+        store.set('userData', response.user); 
+        
+        console.log("signInUser: ", response);
 
         await setupUserStatusHandling(response.user);
-
         await statusClient.updateStatus({
             userId: response.user.id,
             status: 'ONLINE'
         });
+
+        if (mainWindow) {
+            mainWindow.webContents.send('user-data', response.user);
+        }
 
         return response;
     } catch (error) {
@@ -202,11 +251,9 @@ ipcMain.handle('signInUser', async (_, data) => {
 });
 
 ipcMain.handle('getMe', async (_, { access_token }) => {
-    try {
+    return withTokenRefresh(async () => {
         return await authClient.getMe({ access_token });
-    } catch (error) {
-        throw new Error(error.message);
-    }
+    });
 });
 
 ipcMain.handle('getSearch', async (_, { name, type }) => {
@@ -218,74 +265,52 @@ ipcMain.handle('getSearch', async (_, { name, type }) => {
 });
 
 ipcMain.handle('createRelationship', async (_, data) => {
-    try {
+    return withTokenRefresh(async () => {
         const token = store.get('accessToken');
         const { user } = await authClient.getMe({ access_token: token });
         data.current_user = user.id;
         return await relationshipClient.createRelationship(data);
-    } catch (error) {
-        throw new Error(error.message);
-    }
+    });
 });
 
 ipcMain.handle('updateRelationship', async (_, data) => {
-    try {
+    return withTokenRefresh(async () => {
         const token = store.get('accessToken');
         const { user } = await authClient.getMe({ access_token: token });
         data.current_user = user.id;
         return await relationshipClient.updateRelationship(data);
-    } catch (error) {
-        throw new Error(error.message);
-    }
+    });
 });
 
 ipcMain.handle('getRelationshipStatus', async (_, data) => {
-    try {
+    return withTokenRefresh(async () => {
         const token = store.get('accessToken');
         const { user } = await authClient.getMe({ access_token: token });
         data.current_user = user.id;
         return await relationshipClient.getRelationshipStatus(data);
-    } catch (error) {
-        throw new Error(error.message);
-    }
+    });
 });
 
 ipcMain.handle('getRelationships', async (_, data) => {
-    try {
+    return withTokenRefresh(async () => {
         const token = store.get('accessToken');
         const { user } = await authClient.getMe({ access_token: token });
-
         data.current_user = user.id;
         return await relationshipClient.getRelationships(data);
-    } catch (error) {
-        throw new Error(error.message);
-    }
+    });
 });
 
 ipcMain.handle('cancelRelationship', async (_, data) => {
-    try {
+    return withTokenRefresh(async () => {
         const token = store.get('accessToken');
         const { user } = await authClient.getMe({ access_token: token });
         data.current_user = user.id;
-
         return await relationshipClient.cancelRelationship(data);
-    } catch (error) {
-        throw new Error(error.message);
-    }
+    });
 });
 
 ipcMain.on('window-minimize', async () => {
     if (mainWindow) mainWindow.minimize();
-
-    const token = store.get('accessToken');
-    if (token) {
-        const { user } = await authClient.getMe({ access_token: token });
-
-        await statusClient.updateStatus({
-            userId: user.id,
-            status: 'IDLE'
-        });
-    }
 });
 
 ipcMain.on('window-maximize', async () => {
@@ -298,24 +323,34 @@ ipcMain.on('window-maximize', async () => {
     }
     const token = store.get('accessToken');
     if (token) {
-        const { user } = await authClient.getMe({ access_token: token });
-
-        await statusClient.updateStatus({
-            userId: user.id,
-            status: 'ONLINE'
-        });
+        try {
+            const { user } = await withTokenRefresh(async () => {
+                return await authClient.getMe({ access_token: token });
+            });
+            await statusClient.updateStatus({
+                userId: user.id,
+                status: 'ONLINE'
+            });
+        } catch (error) {
+            console.error('Failed to update status:', error);
+        }
     }
 });
 
 ipcMain.on('window-close', async () => {
     const token = store.get('accessToken');
     if (token) {
-        const { user } = await authClient.getMe({ access_token: token });
-
-        await statusClient.updateStatus({
-            userId: user.id,
-            status: 'OFFLINE'
-        });
+        try {
+            const { user } = await withTokenRefresh(async () => {
+                return await authClient.getMe({ access_token: token });
+            });
+            await statusClient.updateStatus({
+                userId: user.id,
+                status: 'OFFLINE'
+            });
+        } catch (error) {
+            console.error('Failed to update status:', error);
+        }
     }
     
     if (mainWindow) mainWindow.close();
@@ -324,12 +359,17 @@ ipcMain.on('window-close', async () => {
 app.on('window-all-closed', async() => {
     const token = store.get('accessToken');
     if (token) {
-        const { user } = await authClient.getMe({ access_token: token });
-
-        await statusClient.updateStatus({
-            userId: user.id,
-            status: 'OFFLINE'
-        });
+        try {
+            const { user } = await withTokenRefresh(async () => {
+                return await authClient.getMe({ access_token: token });
+            });
+            await statusClient.updateStatus({
+                userId: user.id,
+                status: 'OFFLINE'
+            });
+        } catch (error) {
+            console.error('Failed to update status:', error);
+        }
     }
 
     if (process.platform !== 'darwin') app.quit();

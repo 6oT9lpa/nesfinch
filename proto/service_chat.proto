@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package chats;
+
+message CreateChatDMRequest {
+    string current_user = 1;
+    string target_user = 2;
+}
+
+message CreateChatDMResponse {
+    bool success = 1;
+}
+
+message CreateChatGroupRequest {
+    string current_user = 1;
+    repeated string target_users = 2;
+}
+
+message CreateChatGroupResponse {
+    bool success = 1;
+}
+
+service ChatService {
+    rpc CreateChatDM(CreateChatDMRequest) returns (CreateChatDMResponse) {};
+    rpc CreateChatGroup(CreateChatGroupRequest) returns (CreateChatGroupResponse) {};
+}

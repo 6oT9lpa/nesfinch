@@ -137,7 +137,7 @@ document.getElementById('help-button').addEventListener('click', () => {
 
 document.getElementById('open-btn-search').addEventListener('click', (e) => {
     e.preventDefault();
-    showModal('search-contanier');
+    showSearchModal('search-contanier');
 });
 
 document.addEventListener('keydown', function(event) {
@@ -163,6 +163,29 @@ document.addEventListener('keydown', function(event) {
         hideModal('profile-users');
     }
 });
+
+function showSearchModal(modalID, searchType = '') {
+    const modal = document.getElementById(modalID);
+    const searchInput = document.getElementById('search-input');
+    const searchBox = document.getElementById('search-box');
+    if (searchBox) {
+        searchBox.innerHTML = '<p>НЕДАВНИЕ ОБЩЕНИЯ</p>';
+    }
+    
+    if (modal) {
+        modal.style.display = 'block';
+        
+        if (searchType === 'friends') {
+            searchInput.dataset.prefix = '@';
+            searchInput.value = '@';
+            searchInput.placeholder = 'Введите имя пользователя';
+        } else {
+            searchInput.dataset.prefix = '';
+            searchInput.value = '';
+            searchInput.placeholder = 'Куда отправимся?';
+        }
+    }
+}
 
 function showModal(modalID) {
     let modal = document.getElementById(modalID);

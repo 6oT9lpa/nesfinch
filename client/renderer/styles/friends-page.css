@@ -9,3 +9,67 @@
 .btn-add-friend:hover {
     background-color: var(--link-hover);
 }
+
+.friends-list {
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: 750px;
+    overflow-y: auto;
+}
+
+.friend-card {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+    border-radius: var(--border-radius);
+    padding: 10px 15px;
+}
+
+.friend-card:hover {
+    background-color: var(--bg-hover);
+}
+
+.user-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.status {
+    font-size: 12px;
+    margin-top: 3px;
+}
+
+.status.online {
+    color: #43b581;
+}
+
+.status.offline {
+    color: #747f8d;
+}
+
+.friend-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-message, .btn-remove {
+    padding: 8px 9px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    transition: var(--transition);
+    color: var(--primary-color);
+}
+
+.btn-message:hover {
+    color: var(--hover-color);
+}
+
+.btn-remove:hover {
+    color: brown;
+}

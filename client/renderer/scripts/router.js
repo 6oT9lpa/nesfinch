@@ -64,7 +64,10 @@ document.querySelector('.btn-sub')?.addEventListener('click', (e) => {
 });
 
 // Загрузка стартовой страницы при загрузке
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async (e) => {
     loadPage('friendsPage');
     title.textContent = "Друзья";
+
+    let response = await loadAllFriend();
+    console.log(response);
 });

@@ -35,6 +35,9 @@ uuid = "1.16.0"
 tracing = "0.1.41"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
+dirs-next = "2.0.0"
+secrecy = "0.10.3"
+zeroize = "1.8.1"
 
 [build-dependencies]
 tonic-build = "0.10"

@@ -70,7 +70,12 @@ const authClient = {
     getMe: async ({ access_token }) => {
         return new Promise((resolve, reject) => {
             client_auth.getMe({ access_token }, (err, response) => {
-                if (err) return reject(err);
+                if (err) {
+                    if (err.code === grpc.status.UNAUTHENTICATED) {
+                        err.shouldRefresh = true;
+                    }
+                    return reject(err);
+                }
                 resolve(response);
             });
         });

@@ -1,5 +1,4 @@
 use tonic::{Request, Response, Status};
-use serde::Serialize;
 use sqlx::PgPool;
 use chrono::Utc;
 use uuid::Uuid;
@@ -27,8 +26,6 @@ struct RelationshipRow {
     updated_at: chrono::NaiveDateTime,
     is_initiator: bool,
 }
-
-
 
 impl MyRelationshipService {
     pub fn new(db: PgPool) -> Self {
@@ -203,8 +200,8 @@ impl RelationshipService for MyRelationshipService {
                 display_name: row.display_name,
                 status: row.status,
                 created_at: Some(prost_types::Timestamp {
-                    seconds: row.updated_at.timestamp(),
-                    nanos: row.updated_at.timestamp_subsec_nanos() as i32,
+                    seconds: row.updated_at.and_utc().timestamp(),
+                    nanos: row.updated_at.and_utc().timestamp_subsec_nanos() as i32,
                 }),
             });
 
@@ -249,7 +246,7 @@ impl RelationshipService for MyRelationshipService {
         .map_err(|e| Status::internal(format!("DB error: {}", e)))?;
 
         if let Some(r) = row {
-            let rel_type = match r.status.as_str() {
+            let _rel_type = match r.status.as_str() {
                 "FRIEND" => 1,
                 "BLOCKED" => 2,
                 "PENDING" => 3,
@@ -259,8 +256,8 @@ impl RelationshipService for MyRelationshipService {
             return Ok(Response::new(GetRelationshipStatusResponse { 
                 success: true,
                 updated_at: Some(prost_types::Timestamp {
-                    seconds: r.updated_at.timestamp(),
-                    nanos: r.updated_at.timestamp_subsec_nanos() as i32,
+                    seconds: r.updated_at.and_utc().timestamp(),
+                    nanos: r.updated_at.and_utc().timestamp_subsec_nanos() as i32,
                 }),
             }));
         }
@@ -320,8 +317,8 @@ impl RelationshipService for MyRelationshipService {
         Ok(Response::new(CreateRelationshipResponse {
             status: 3,
             created_at: Some(prost_types::Timestamp {
-                seconds: created_at.timestamp(),
-                nanos: created_at.timestamp_subsec_nanos() as i32,
+                seconds: created_at.and_utc().timestamp(),
+                nanos: created_at.and_utc().timestamp_subsec_nanos() as i32,
             }),
         }))
     }

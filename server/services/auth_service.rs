@@ -97,7 +97,7 @@ impl AuthService for MyAuthService {
         .map_err(|_| Status::internal("Insert failed"))?;
 
         let key_manager = KeyManager::new(self.db.clone());
-        let _keypair = key_manager.generate_user_keys(record.id).await.map_err(|e| {
+        key_manager.generate_user_keys(record.id).await.map_err(|e| {
             println!("Error generating user keys: {:?}", e);
             Status::internal("Key generation error")
         })?;

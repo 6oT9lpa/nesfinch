@@ -43,7 +43,7 @@
                         </div>
                     </div>
                     <div class="hot-btns-contanier">
-                        <div class="fa-btn btn-friends">
+                        <div class="fa-btn btn-friends" id="btn-friends">
                             <i class="fa fa-users" aria-hidden="true"></i>
                             <a class="btn">Друзья</a>
                         </div>
@@ -94,13 +94,13 @@
 
         <div class="modal search-content" id="search-contanier">
             <div class="modal-content">
-                <input type="text" placeholder="Куда отправимся?" id="search-input">
+                <input type="text" placeholder="Куда отправимся?" id="search-input" data-prefix="">
                 <div class="search-footer" id="search-box">
                     <p>НЕДАВНИЕ ОБЩЕНИЯ</p>
                 </div>
                 <span>Подсказка: ищите с помощью знаков @ и &</span>
             </div>
-        </div> 
+        </div>
 
         <div class="modal profile-users" id="profile-users">
             <div class="modal-content profile-users">
@@ -131,7 +131,8 @@
         </div>
 
         <script src="../scripts/app.js"></script>
-        <script src="../scripts/router.js"></script>
         <script src="../scripts/relationships.js"></script>
+        <script src="../scripts/friends.js"></script>
+        <script src="../scripts/router.js"></script>
     </body>
 </html>
