@@ -52,7 +52,6 @@ impl MyAuthService {
 
 #[tonic::async_trait]
 impl AuthService for MyAuthService {
-
     // регистрация нового пользователя
     async fn sign_up_user(
         &self,
