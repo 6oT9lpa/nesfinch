@@ -1,5 +1,10 @@
 use tonic::Status;
-use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{EncodePrivateKey, EncodePublicKey, DecodePrivateKey}};
+use rsa::{
+    pkcs8::{DecodePrivateKey, EncodePrivateKey, EncodePublicKey, DecodePublicKey}, 
+    Pkcs1v15Encrypt,
+    RsaPrivateKey, 
+    RsaPublicKey
+};
 use rand::rngs::OsRng;
 use rsa::pkcs8::LineEnding;
 use sha2::{Digest, Sha256};
@@ -11,6 +16,7 @@ use tracing::{error, info};
 use zeroize::Zeroizing;
 use rand::RngCore;
 use rand::Rng;
+use uuid::Uuid;
 
 // Конфигурация безопасности
 const RSA_KEY_SIZE: usize = 2048;
@@ -41,7 +47,7 @@ impl KeyManager {
         Self { db, encryption_key }
     }
 
-    // Метод для получения текущего ключа шифрования (например, для сохранения)
+    // Метод для получения текущего ключа шифрования
     pub fn get_encryption_key(&self) -> [u8; ENCRYPTION_KEY_SIZE] {
         self.encryption_key
     }
@@ -66,7 +72,7 @@ impl KeyManager {
     }
 
     // Генерация отпечатка с SHA-256
-    fn generate_fingerprint(public_key: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn generate_fingerprint(public_key: &str) -> Result<String, Box<dyn std::error::Error>> {
         let mut hasher = Sha256::new();
         hasher.update(public_key.as_bytes());
         Ok(hex::encode(hasher.finalize()))
@@ -86,7 +92,7 @@ impl KeyManager {
     }
 
     // Шифрование данных с AEAD
-    fn encrypt_data(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    pub fn encrypt_data(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut nonce = [0u8; 12];
         OsRng.try_fill(&mut nonce)?;
         
@@ -223,5 +229,137 @@ impl KeyManager {
                 error!("Failed to parse private key: {:?}", e);
                 Status::internal("Invalid private key format")
             })
+    }
+
+    pub async fn generate_government_key(&self) -> Result<(), Status> {
+        let keypair = Self::generate_keypair().map_err(|e| {
+            error!("Government key generation error: {:?}", e);
+            Status::internal("Government key generation error")
+        })?;
+
+        let valid_from = Utc::now();
+        let valid_to = valid_from + ChronoDuration::days(1);
+
+        sqlx::query!(
+            "UPDATE government_keys SET is_active = false WHERE is_active = true"
+        )
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            error!("Database error: {:?}", e);
+            Status::internal("Database error")
+        })?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO government_keys 
+            (public_key, private_key_encrypted, valid_from, valid_to, is_active)
+            VALUES ($1, $2, $3, $4, true)
+            "#,
+            keypair.public_key,
+            keypair.private_key.to_string(),
+            valid_from.naive_utc(),
+            valid_to.naive_utc()
+        )
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            error!("Database error: {:?}", e);
+            Status::internal("Database error")
+        })?;
+
+        Ok(())
+    }
+
+    pub async fn encrypt_with_government_key(&self, message: &str) -> Result<(String, String), Status> {
+        let active_key = sqlx::query!(
+            "SELECT public_key FROM government_keys WHERE is_active = true LIMIT 1"
+        )
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| {
+            error!("Database error: {:?}", e);
+            Status::internal("Database error")
+        })?
+        .ok_or(Status::internal("No active government key found"))?;
+
+        let public_key = RsaPublicKey::from_public_key_pem(&active_key.public_key)
+            .map_err(|e| {
+                error!("Failed to parse government public key: {:?}", e);
+                Status::internal("Invalid government key format")
+            })?;
+
+        let mut rng = OsRng;
+        let encrypted = public_key.encrypt(
+            &mut rng, 
+            rsa::Pkcs1v15Encrypt,
+            message.as_bytes()
+        )
+        .map_err(|e| {
+            error!("Encryption failed: {:?}", e);
+            Status::internal("Encryption failed")
+        })?;
+
+        let iv: [u8; 16] = rand::random();
+        Ok((hex::encode(encrypted), hex::encode(iv)))
+    }
+
+    // Восстановление сообщений по приватному ключу
+    pub async fn recover_messages(
+        &self,
+        user_id: Uuid,
+        private_key_pem: &str,
+    ) -> Result<Vec<(String, String)>, Status> {
+        let fingerprint = Self::generate_fingerprint_from_private(private_key_pem)
+            .map_err(|e| {
+                error!("Fingerprint error: {:?}", e);
+                Status::invalid_argument("Invalid private key")
+            })?;
+
+        let key_exists: bool = sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM user_keys WHERE user_id = $1 AND fingerprint = $2)",
+            user_id,
+            fingerprint
+        )
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| {
+            error!("Database error: {:?}", e);
+            Status::internal("Database error")
+        })?.expect("Erorr db");
+
+        if !key_exists {
+            return Err(Status::permission_denied("Private key does not belong to user"));
+        }
+
+        let messages = sqlx::query!(
+            r#"
+            SELECT m.id, m.encrypted_content 
+            FROM messages m
+            JOIN direct_chats_members dcm ON m.chat_id = dcm.chat_id
+            WHERE dcm.user_id = $1
+            "#,
+            user_id
+        )
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| {
+            error!("Database error: {:?}", e);
+            Status::internal("Database error")
+        })?;
+
+        let mut result = Vec::new();
+        for message in messages {
+            result.push((message.id.to_string(), message.encrypted_content));
+        }
+
+        Ok(result)
+    }
+
+    fn generate_fingerprint_from_private(private_key_pem: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let private_key = RsaPrivateKey::from_pkcs8_pem(private_key_pem)?;
+        let public_key = RsaPublicKey::from(&private_key);
+        let public_pem = public_key.to_public_key_pem(LineEnding::LF)?;
+        Self::generate_fingerprint(&public_pem)
     }
 }
