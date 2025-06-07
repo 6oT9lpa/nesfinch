@@ -1,26 +1,84 @@
 syntax = "proto3";
-
 package chats;
 
+import "google/protobuf/timestamp.proto";
+
+message User {
+    string id = 1;
+    string username = 2;
+}
+
+message EncryptedKey {
+    string encrypted_data = 1;
+    string iv = 2;
+    google.protobuf.Timestamp expires_at = 3;
+}
+
+message Message {
+    string id = 1;
+    string chat_id = 2;
+    string sender_id = 3;
+    string encrypted_content = 4;
+    google.protobuf.Timestamp sent_at = 5;
+    bool is_deleted = 6;
+}
+
+// DM Chat
 message CreateChatDMRequest {
     string current_user = 1;
     string target_user = 2;
 }
 
 message CreateChatDMResponse {
-    bool success = 1;
+    string chat_id = 1;
+    EncryptedKey encrypted_key = 2;
 }
 
+// Group Chat
 message CreateChatGroupRequest {
     string current_user = 1;
     repeated string target_users = 2;
 }
 
 message CreateChatGroupResponse {
-    bool success = 1;
+    string chat_id = 1;
+    EncryptedKey session_key = 2;
+}
+
+// Message handling
+message SendMessageRequest {
+    string chat_id = 1;
+    string sender_id = 2;
+    string encrypted_content = 3;
+    bool is_group = 4;
+}
+
+message SendMessageResponse {
+    string message_id = 1;
+    google.protobuf.Timestamp sent_at = 2;
+}
+
+// Key exchange
+message ExchangeKeysRequest {
+    string user_id = 1;
+    string public_key = 2;
+}
+
+message ExchangeKeysResponse {
+    string target_user_id = 1;
+    string public_key = 2;
 }
 
 service ChatService {
-    rpc CreateChatDM(CreateChatDMRequest) returns (CreateChatDMResponse) {};
-    rpc CreateChatGroup(CreateChatGroupRequest) returns (CreateChatGroupResponse) {};
+    // Личные сообщения
+    rpc CreateChatDM(CreateChatDMRequest) returns (CreateChatDMResponse);
+    
+    // Групповые чаты 
+    rpc CreateChatGroup(CreateChatGroupRequest) returns (CreateChatGroupResponse);
+    
+    // Обработка сообщений
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+    
+    // Смена ключа
+    rpc ExchangePublicKeys(ExchangeKeysRequest) returns (ExchangeKeysResponse);
 }
