@@ -22,7 +22,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "proto/rpc_relationships.proto",
                 "proto/service_communication.proto",
                 "proto/rpc_search.proto",
-                "proto/service_status.proto"
+                "proto/service_status.proto",
+                "proto/service_chat.proto"
             ],
             &["proto/"],
         )?;
