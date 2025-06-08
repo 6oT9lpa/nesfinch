@@ -11,6 +11,7 @@ mod chats {
     tonic::include_proto!("chats"); 
 }
 
+// что изменил
 pub use chats::chat_service_server::{ChatService, ChatServiceServer};
 use chats::*;
 
